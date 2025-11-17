@@ -51,14 +51,8 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Add user role
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .insert({ user_id: data.user.id, role: selectedRole });
-
-        if (roleError) throw roleError;
-
-        toast.success("Account created! Please check your email for verification.");
+        // Do NOT insert role here; unauthenticated signups have no session and will fail RLS
+        toast.success("Account created! Verify your email, then sign in to choose your role.");
         navigate("/");
       }
     } catch (error: any) {
