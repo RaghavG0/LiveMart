@@ -46,13 +46,13 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/wishlist")}>
                 <Heart className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/cart")}>
                 <ShoppingCart className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/account")}>
                 <UserIcon className="h-5 w-5" />
               </Button>
               <Button variant="ghost" size="icon" onClick={handleSignOut}>
