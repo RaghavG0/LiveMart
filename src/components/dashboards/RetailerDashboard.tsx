@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -5,18 +6,52 @@ import { LogOut, Plus, Package, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ProductForm } from "@/components/products/ProductForm";
+import { ProductList } from "@/components/products/ProductList";
 
 interface RetailerDashboardProps {
   user: User;
 }
 
+interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  stock_quantity: number;
+  category_id?: string;
+  is_available: boolean;
+  availability_date?: string;
+  image_url?: string;
+}
+
 const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
   const navigate = useNavigate();
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     toast.success("Signed out successfully");
     navigate("/");
+  };
+
+  const handleAddProduct = () => {
+    setEditingProduct(undefined);
+    setShowProductForm(true);
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setShowProductForm(true);
+  };
+
+  const handleFormSuccess = () => {
+    setShowProductForm(false);
+    setEditingProduct(undefined);
+    setRefreshTrigger((prev) => prev + 1);
   };
 
   return (
@@ -55,17 +90,11 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
           </TabsList>
 
           <TabsContent value="products" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-semibold">Your Products</h3>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
-            </div>
-            <div className="text-center py-12 text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No products yet. Start by adding your first product!</p>
-            </div>
+            <ProductList
+              onEdit={handleEditProduct}
+              onAdd={handleAddProduct}
+              refreshTrigger={refreshTrigger}
+            />
           </TabsContent>
 
           <TabsContent value="orders" className="space-y-4">
@@ -77,6 +106,21 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
           </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingProduct ? "Edit Product" : "Add New Product"}
+            </DialogTitle>
+          </DialogHeader>
+          <ProductForm
+            product={editingProduct}
+            onSuccess={handleFormSuccess}
+            onCancel={() => setShowProductForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
