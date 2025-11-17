@@ -6,6 +6,7 @@ import CustomerDashboard from "@/components/dashboards/CustomerDashboard";
 import RetailerDashboard from "@/components/dashboards/RetailerDashboard";
 import WholesalerDashboard from "@/components/dashboards/WholesalerDashboard";
 import LandingPage from "@/components/LandingPage";
+import { RoleSelector } from "@/components/RoleSelector";
 import { toast } from "sonner";
 
 type UserRole = "customer" | "retailer" | "wholesaler" | null;
@@ -59,13 +60,24 @@ const Index = () => {
         .eq("user_id", userId)
         .single();
 
-      if (error) throw error;
-      setUserRole(data.role as UserRole);
+      if (error) {
+        // User might not have a role yet
+        console.log("No role found for user");
+        setUserRole(null);
+      } else {
+        setUserRole(data.role as UserRole);
+      }
     } catch (error) {
       console.error("Error fetching user role:", error);
-      toast.error("Error loading user role");
+      setUserRole(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRoleSelected = () => {
+    if (user) {
+      fetchUserRole(user.id);
     }
   };
 
@@ -85,13 +97,7 @@ const Index = () => {
   }
 
   if (!userRole) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
-        <div className="text-center">
-          <p className="text-lg text-muted-foreground mb-4">No role assigned. Please contact support.</p>
-        </div>
-      </div>
-    );
+    return <RoleSelector onRoleSelected={handleRoleSelected} />;
   }
 
   switch (userRole) {
