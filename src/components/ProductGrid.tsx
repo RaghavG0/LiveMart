@@ -52,11 +52,80 @@ const ProductGrid = ({ searchQuery }: ProductGridProps) => {
   };
 
   const handleAddToCart = async (productId: string) => {
-    toast.success("Added to cart!");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Please sign in to add items to cart");
+        return;
+      }
+
+      // Check if item already in cart
+      const { data: existing } = await supabase
+        .from("cart_items")
+        .select("id, quantity")
+        .eq("user_id", session.user.id)
+        .eq("product_id", productId)
+        .single();
+
+      if (existing) {
+        // Update quantity
+        const { error } = await supabase
+          .from("cart_items")
+          .update({ quantity: existing.quantity + 1 })
+          .eq("id", existing.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new cart item
+        const { error } = await supabase
+          .from("cart_items")
+          .insert({ user_id: session.user.id, product_id: productId, quantity: 1 });
+
+        if (error) throw error;
+      }
+
+      toast.success("Added to cart!");
+    } catch (error: any) {
+      toast.error("Failed to add to cart");
+    }
   };
 
   const handleAddToWishlist = async (productId: string) => {
-    toast.success("Added to wishlist!");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Please sign in to add items to wishlist");
+        return;
+      }
+
+      // Check if item already in wishlist
+      const { data: existing } = await supabase
+        .from("wishlist_items")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .eq("product_id", productId)
+        .single();
+
+      if (existing) {
+        toast.info("Already in your wishlist");
+        return;
+      }
+
+      // Insert new wishlist item
+      const { error } = await supabase
+        .from("wishlist_items")
+        .insert({ user_id: session.user.id, product_id: productId });
+
+      if (error) throw error;
+
+      toast.success("Added to wishlist!");
+    } catch (error: any) {
+      if (error.code !== "PGRST116") { // Ignore "no rows returned" error
+        toast.error("Failed to add to wishlist");
+      }
+    }
   };
 
   if (loading) {
