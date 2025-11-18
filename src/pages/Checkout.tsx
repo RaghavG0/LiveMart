@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, CreditCard } from "lucide-react";
+import { ArrowLeft, CreditCard, Smartphone, Building2, Wallet } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { User } from "@supabase/supabase-js";
 
 interface CartItem {
@@ -29,6 +30,7 @@ const Checkout = () => {
   const [submitting, setSubmitting] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [notes, setNotes] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cod");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -87,6 +89,11 @@ const Checkout = () => {
       return;
     }
 
+    if (!paymentMethod) {
+      toast.error("Please select a payment method");
+      return;
+    }
+
     if (!user) return;
 
     setSubmitting(true);
@@ -100,7 +107,8 @@ const Checkout = () => {
           delivery_address: deliveryAddress,
           notes: notes || null,
           status: "pending",
-          payment_status: "pending",
+          payment_status: paymentMethod === "cod" ? "pending" : "pending",
+          payment_method: paymentMethod,
         })
         .select()
         .single();
@@ -199,10 +207,53 @@ const Checkout = () => {
                 <CardTitle>Payment Method</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-3 p-4 border rounded-lg">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  <span className="font-medium">Cash on Delivery</span>
-                </div>
+                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                      <RadioGroupItem value="upi" id="upi" />
+                      <Label htmlFor="upi" className="flex items-center gap-3 cursor-pointer flex-1">
+                        <Smartphone className="h-5 w-5 text-primary" />
+                        <div>
+                          <div className="font-medium">UPI Payment</div>
+                          <div className="text-sm text-muted-foreground">Pay via Google Pay, PhonePe, Paytm</div>
+                        </div>
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                      <RadioGroupItem value="card" id="card" />
+                      <Label htmlFor="card" className="flex items-center gap-3 cursor-pointer flex-1">
+                        <CreditCard className="h-5 w-5 text-primary" />
+                        <div>
+                          <div className="font-medium">Credit/Debit Card</div>
+                          <div className="text-sm text-muted-foreground">Visa, Mastercard, Rupay</div>
+                        </div>
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                      <RadioGroupItem value="netbanking" id="netbanking" />
+                      <Label htmlFor="netbanking" className="flex items-center gap-3 cursor-pointer flex-1">
+                        <Building2 className="h-5 w-5 text-primary" />
+                        <div>
+                          <div className="font-medium">Net Banking</div>
+                          <div className="text-sm text-muted-foreground">All major banks supported</div>
+                        </div>
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                      <RadioGroupItem value="cod" id="cod" />
+                      <Label htmlFor="cod" className="flex items-center gap-3 cursor-pointer flex-1">
+                        <Wallet className="h-5 w-5 text-primary" />
+                        <div>
+                          <div className="font-medium">Cash on Delivery</div>
+                          <div className="text-sm text-muted-foreground">Pay when you receive</div>
+                        </div>
+                      </Label>
+                    </div>
+                  </div>
+                </RadioGroup>
               </CardContent>
             </Card>
           </div>
