@@ -18,15 +18,18 @@ interface Product {
 
 interface ProductGridProps {
   searchQuery: string;
+  priceRange?: [number, number];
+  minStock?: number;
+  inStockOnly?: boolean;
 }
 
-const ProductGrid = ({ searchQuery }: ProductGridProps) => {
+const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly }: ProductGridProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchProducts();
-  }, [searchQuery]);
+  }, [searchQuery, priceRange, minStock, inStockOnly]);
 
   const fetchProducts = async () => {
     try {
@@ -37,6 +40,18 @@ const ProductGrid = ({ searchQuery }: ProductGridProps) => {
 
       if (searchQuery) {
         query = query.ilike("name", `%${searchQuery}%`);
+      }
+
+      if (priceRange) {
+        query = query.gte("price", priceRange[0]).lte("price", priceRange[1]);
+      }
+
+      if (minStock !== undefined && minStock > 0) {
+        query = query.gte("stock_quantity", minStock);
+      }
+
+      if (inStockOnly) {
+        query = query.gt("stock_quantity", 0);
       }
 
       const { data, error } = await query;
