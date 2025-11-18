@@ -6,14 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowLeft, User as UserIcon, Save, LogOut } from "lucide-react";
+import { ArrowLeft, User as UserIcon, Save, LogOut, MapPin, Navigation } from "lucide-react";
 import { User } from "@supabase/supabase-js";
+import { LocationPicker } from "@/components/LocationPicker";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface Profile {
   full_name: string;
   phone: string | null;
   avatar_url: string | null;
   location_address: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
 }
 
 const Account = () => {
@@ -24,10 +28,14 @@ const Account = () => {
     phone: null,
     avatar_url: null,
     location_address: null,
+    location_lat: null,
+    location_lng: null,
   });
   const [userRole, setUserRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const [capturingLocation, setCapturingLocation] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -77,6 +85,63 @@ const Account = () => {
     }
   };
 
+  const handleCaptureCurrentLocation = () => {
+    if (!("geolocation" in navigator)) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setCapturingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        // Reverse geocode to get address
+        try {
+          const response = await fetch(
+            `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${lng}&api_key=${import.meta.env.VITE_OLA_MAPS_API_KEY}`
+          );
+          const data = await response.json();
+          const address = data.results?.[0]?.formatted_address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+          setProfile({
+            ...profile,
+            location_lat: lat,
+            location_lng: lng,
+            location_address: address,
+          });
+
+          toast.success("Location captured successfully");
+        } catch (error) {
+          setProfile({
+            ...profile,
+            location_lat: lat,
+            location_lng: lng,
+            location_address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+          });
+          toast.success("Location captured");
+        }
+        setCapturingLocation(false);
+      },
+      (error) => {
+        toast.error("Unable to get your location");
+        setCapturingLocation(false);
+      }
+    );
+  };
+
+  const handleLocationSelect = (lat: number, lng: number, address: string) => {
+    setProfile({
+      ...profile,
+      location_lat: lat,
+      location_lng: lng,
+      location_address: address,
+    });
+    setLocationDialogOpen(false);
+    toast.success("Location updated");
+  };
+
   const handleSaveProfile = async () => {
     if (!user) return;
     setSaving(true);
@@ -88,6 +153,8 @@ const Account = () => {
           full_name: profile.full_name,
           phone: profile.phone,
           location_address: profile.location_address,
+          location_lat: profile.location_lat,
+          location_lng: profile.location_lng,
         })
         .eq("id", user.id);
 
@@ -212,6 +279,76 @@ const Account = () => {
                 <Save className="mr-2 h-4 w-4" />
                 {saving ? "Saving..." : "Save Changes"}
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Location Settings
+              </CardTitle>
+              <CardDescription>
+                Set your location for better product discovery
+                {(userRole === "retailer" || userRole === "wholesaler") && (
+                  <span className="block mt-1 text-amber-600 dark:text-amber-500 font-medium">
+                    Required for sellers to list products
+                  </span>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="location">Current Location</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="location"
+                    value={profile.location_address || "Not set"}
+                    disabled
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCaptureCurrentLocation}
+                    disabled={capturingLocation}
+                  >
+                    {capturingLocation ? (
+                      <Navigation className="h-4 w-4 animate-pulse" />
+                    ) : (
+                      <Navigation className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                {profile.location_lat && profile.location_lng && (
+                  <p className="text-xs text-muted-foreground">
+                    Coordinates: {profile.location_lat.toFixed(6)}, {profile.location_lng.toFixed(6)}
+                  </p>
+                )}
+              </div>
+
+              <Dialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    <MapPin className="mr-2 h-4 w-4" />
+                    Pick Location on Map
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Select Your Location</DialogTitle>
+                    <DialogDescription>
+                      Drag the marker to set your exact location
+                    </DialogDescription>
+                  </DialogHeader>
+                  <LocationPicker
+                    initialLat={profile.location_lat}
+                    initialLng={profile.location_lng}
+                    onLocationSelect={handleLocationSelect}
+                    apiKey={import.meta.env.VITE_OLA_MAPS_API_KEY}
+                  />
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
 
