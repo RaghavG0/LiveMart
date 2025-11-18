@@ -8,6 +8,8 @@ import { useNavigate } from "react-router-dom";
 import ProductGrid from "@/components/ProductGrid";
 import { Input } from "@/components/ui/input";
 import FilterPanel, { FilterState } from "@/components/FilterPanel";
+import { useUserLocation } from "@/hooks/useUserLocation";
+import { LocationPermission } from "@/components/LocationPermission";
 
 interface CustomerDashboardProps {
   user: User;
@@ -15,13 +17,17 @@ interface CustomerDashboardProps {
 
 const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
   const navigate = useNavigate();
+  const { location, loading: locationLoading } = useUserLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [maxPrice, setMaxPrice] = useState(1000);
+  const [showLocationBanner, setShowLocationBanner] = useState(true);
   const [filters, setFilters] = useState<FilterState>({
     priceRange: [0, 1000],
     minStock: 0,
     inStockOnly: false,
     sortBy: "none",
+    maxDistance: null,
+    nearbyOnly: false,
   });
 
   useEffect(() => {
@@ -97,12 +103,24 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
           <p className="text-muted-foreground">Discover amazing products from local retailers</p>
         </div>
 
+        {/* Location Permission Banner */}
+        {!location && showLocationBanner && (
+          <LocationPermission 
+            onLocationGranted={() => {
+              setShowLocationBanner(false);
+              toast.success("Location enabled! You can now see nearby shops");
+            }}
+            onDismiss={() => setShowLocationBanner(false)}
+          />
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <aside className="lg:col-span-1">
             <FilterPanel 
               filters={filters} 
               onFiltersChange={setFilters}
               maxPrice={maxPrice}
+              hasLocation={!!location}
             />
           </aside>
           <div className="lg:col-span-3">
@@ -112,6 +130,8 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
               minStock={filters.minStock}
               inStockOnly={filters.inStockOnly}
               sortBy={filters.sortBy}
+              userLocation={location}
+              maxDistance={filters.maxDistance}
             />
           </div>
         </div>

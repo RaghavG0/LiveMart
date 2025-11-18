@@ -342,6 +342,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_distance: {
+        Args: { lat1: number; lat2: number; lon1: number; lon2: number }
+        Returns: number
+      }
+      get_products_with_distance: {
+        Args: {
+          in_stock_only?: boolean
+          max_distance?: number
+          max_price?: number
+          min_price?: number
+          min_stock?: number
+          search_text?: string
+          user_lat: number
+          user_lng: number
+        }
+        Returns: {
+          availability_date: string
+          category_id: string
+          created_at: string
+          description: string
+          distance_km: number
+          id: string
+          image_url: string
+          is_available: boolean
+          name: string
+          price: number
+          seller_address: string
+          seller_id: string
+          seller_name: string
+          stock_quantity: number
+          updated_at: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

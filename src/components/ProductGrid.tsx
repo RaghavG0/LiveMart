@@ -14,6 +14,9 @@ interface Product {
   stock_quantity: number;
   image_url: string;
   is_available: boolean;
+  seller_name?: string;
+  seller_address?: string;
+  distance_km?: number;
 }
 
 interface ProductGridProps {
@@ -21,51 +24,80 @@ interface ProductGridProps {
   priceRange?: [number, number];
   minStock?: number;
   inStockOnly?: boolean;
-  sortBy?: "none" | "price-asc" | "price-desc";
+  sortBy?: "none" | "price-asc" | "price-desc" | "distance-asc";
+  userLocation?: { lat: number; lng: number } | null;
+  maxDistance?: number | null;
 }
 
-const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy }: ProductGridProps) => {
+const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance }: ProductGridProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchProducts();
-  }, [searchQuery, priceRange, minStock, inStockOnly, sortBy]);
+  }, [searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance]);
 
   const fetchProducts = async () => {
     try {
-      let query = supabase
-        .from("products")
-        .select("*")
-        .eq("is_available", true);
+      // Use location-based RPC if user location and distance filter are available
+      if (userLocation && (sortBy === "distance-asc" || maxDistance)) {
+        const { data, error } = await supabase.rpc('get_products_with_distance', {
+          user_lat: userLocation.lat,
+          user_lng: userLocation.lng,
+          max_distance: maxDistance,
+          search_text: searchQuery || null,
+          min_price: priceRange?.[0] || null,
+          max_price: priceRange?.[1] || null,
+          min_stock: minStock || 0,
+          in_stock_only: inStockOnly || false
+        });
 
-      if (searchQuery) {
-        query = query.ilike("name", `%${searchQuery}%`);
+        if (error) throw error;
+        
+        // Apply client-side sorting if needed (RPC already sorts by distance)
+        let sortedData = data || [];
+        if (sortBy === "price-asc") {
+          sortedData = [...sortedData].sort((a, b) => a.price - b.price);
+        } else if (sortBy === "price-desc") {
+          sortedData = [...sortedData].sort((a, b) => b.price - a.price);
+        }
+        
+        setProducts(sortedData);
+      } else {
+        // Fall back to regular query when no location
+        let query = supabase
+          .from("products")
+          .select("*")
+          .eq("is_available", true);
+
+        if (searchQuery) {
+          query = query.ilike("name", `%${searchQuery}%`);
+        }
+
+        if (priceRange) {
+          query = query.gte("price", priceRange[0]).lte("price", priceRange[1]);
+        }
+
+        if (minStock !== undefined && minStock > 0) {
+          query = query.gte("stock_quantity", minStock);
+        }
+
+        if (inStockOnly) {
+          query = query.gt("stock_quantity", 0);
+        }
+
+        // Apply sorting
+        if (sortBy === "price-asc") {
+          query = query.order("price", { ascending: true });
+        } else if (sortBy === "price-desc") {
+          query = query.order("price", { ascending: false });
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        setProducts(data || []);
       }
-
-      if (priceRange) {
-        query = query.gte("price", priceRange[0]).lte("price", priceRange[1]);
-      }
-
-      if (minStock !== undefined && minStock > 0) {
-        query = query.gte("stock_quantity", minStock);
-      }
-
-      if (inStockOnly) {
-        query = query.gt("stock_quantity", 0);
-      }
-
-      // Apply sorting
-      if (sortBy === "price-asc") {
-        query = query.order("price", { ascending: true });
-      } else if (sortBy === "price-desc") {
-        query = query.order("price", { ascending: false });
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setProducts(data || []);
     } catch (error) {
       console.error("Error fetching products:", error);
       toast.error("Failed to load products");
@@ -224,6 +256,21 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy }:
             <p className="text-sm text-muted-foreground mt-1">
               {product.stock_quantity} units available
             </p>
+            {product.distance_km !== undefined && (
+              <div className="mt-2 flex items-center gap-2">
+                <Badge 
+                  variant="outline" 
+                  className={product.distance_km < 5 ? "bg-primary/10 text-primary border-primary" : ""}
+                >
+                  📍 {product.distance_km.toFixed(1)} km away
+                </Badge>
+              </div>
+            )}
+            {product.seller_name && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Seller: {product.seller_name}
+              </p>
+            )}
           </CardContent>
           <CardFooter>
             <Button
