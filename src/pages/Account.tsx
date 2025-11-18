@@ -189,6 +189,9 @@ const Account = () => {
       if (error) throw error;
 
       toast.success("Profile updated successfully");
+      if ((userRole === 'retailer' || userRole === 'wholesaler') && profile.location_lat && profile.location_lng) {
+        toast.success("Location saved! You can now create products.", { duration: 4000 });
+      }
     } catch (error: any) {
       toast.error("Failed to update profile");
     } finally {
@@ -328,18 +331,30 @@ const Account = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                Location Settings
+                {(userRole === 'retailer' || userRole === 'wholesaler') ? 'Shop Location' : 'Location Settings'}
               </CardTitle>
               <CardDescription>
-                Set your location for better product discovery
-                {(userRole === "retailer" || userRole === "wholesaler") && (
-                  <span className="block mt-1 text-amber-600 dark:text-amber-500 font-medium">
-                    Required for sellers to list products
-                  </span>
-                )}
+                {(userRole === 'retailer' || userRole === 'wholesaler') 
+                  ? 'Your shop location helps customers find you on the map and filter products by distance. This is required to list products.'
+                  : 'Set your location for better product discovery'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {(userRole === 'retailer' || userRole === 'wholesaler') && (
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`h-2 w-2 rounded-full ${profile.location_lat && profile.location_lng ? 'bg-green-500' : 'bg-orange-500'}`} />
+                    <span className="font-medium text-sm">
+                      Location Status: {profile.location_lat && profile.location_lng ? 'Complete ✓' : 'Incomplete'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {profile.location_lat && profile.location_lng 
+                      ? 'Your shop is visible to customers on the map'
+                      : 'Set your location to start listing products and appear on the map'}
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="location">Current Location</Label>
                 <div className="flex gap-2">

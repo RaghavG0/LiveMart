@@ -145,7 +145,9 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         .single();
 
       if (!profile?.location_lat || !profile?.location_lng) {
-        toast.error("Please set your location in Account Settings before adding products");
+        toast.error("Please set your shop location in Account Settings before adding products", {
+          duration: 5000,
+        });
         return;
       }
 
@@ -190,6 +192,10 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div className="p-3 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground">
+        ℹ️ Products are listed at your shop location (set in Account Settings)
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="image">Product Image</Label>
         <div className="flex items-center gap-4">

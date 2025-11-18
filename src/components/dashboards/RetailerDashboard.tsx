@@ -2,7 +2,7 @@ import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Package, BarChart3, Store } from "lucide-react";
+import { LogOut, Plus, Package, BarChart3, Store, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ProductForm } from "@/components/products/ProductForm";
 import { ProductList } from "@/components/products/ProductList";
 import WholesalerProductGrid from "@/components/WholesalerProductGrid";
+import { useSellerLocation } from "@/hooks/useSellerLocation";
+import { LocationStatusBanner } from "@/components/LocationStatusBanner";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface RetailerDashboardProps {
   user: User;
@@ -32,6 +35,8 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const { hasLocation, loading: locationLoading } = useSellerLocation(user?.id);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -40,6 +45,10 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
   };
 
   const handleAddProduct = () => {
+    if (hasLocation === false) {
+      setShowLocationPrompt(true);
+      return;
+    }
     setEditingProduct(undefined);
     setShowProductForm(true);
   };
@@ -64,9 +73,14 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
             <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               Live MART - Retailer Portal
             </h1>
-            <Button variant="ghost" size="icon" onClick={handleSignOut}>
-              <LogOut className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/account")} title="Account Settings">
+                <UserIcon className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out">
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -77,6 +91,8 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
           <h2 className="text-3xl font-bold mb-2">Retailer Dashboard</h2>
           <p className="text-muted-foreground">Manage your inventory and orders</p>
         </div>
+
+        <LocationStatusBanner show={hasLocation === false && !locationLoading} />
 
         <Tabs defaultValue="products" className="space-y-6">
           <TabsList>
@@ -134,6 +150,26 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
           />
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showLocationPrompt} onOpenChange={setShowLocationPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Shop Location Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your shop location is required to list products. Customers use location to find nearby shops and products.
+              Please set your location in Account Settings before adding products.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setShowLocationPrompt(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => { setShowLocationPrompt(false); navigate('/account'); }}>
+              Go to Account Settings
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
