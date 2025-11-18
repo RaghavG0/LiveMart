@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ShoppingBag, Store, Warehouse } from "lucide-react";
+import { ShoppingBag, Store, Warehouse, Navigation, MapPin } from "lucide-react";
 
 type UserRole = "customer" | "retailer" | "wholesaler";
 
@@ -20,6 +20,10 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>("customer");
+  const [locationAddress, setLocationAddress] = useState("");
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLng, setLocationLng] = useState<number | null>(null);
+  const [capturingLocation, setCapturingLocation] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -29,8 +33,78 @@ const Auth = () => {
     });
   }, [navigate]);
 
+  const handleCaptureCurrentLocation = () => {
+    if (!("geolocation" in navigator)) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setCapturingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        try {
+          const response = await fetch(
+            `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${lng}&api_key=${import.meta.env.VITE_OLA_MAPS_API_KEY}`
+          );
+          const data = await response.json();
+          const address = data.results?.[0]?.formatted_address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+          setLocationAddress(address);
+          setLocationLat(lat);
+          setLocationLng(lng);
+          toast.success("Location captured successfully");
+        } catch (error) {
+          setLocationAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+          setLocationLat(lat);
+          setLocationLng(lng);
+          toast.success("Location captured");
+        }
+        setCapturingLocation(false);
+      },
+      (error) => {
+        toast.error("Unable to get your location");
+        setCapturingLocation(false);
+      }
+    );
+  };
+
+  const handleGeocodeAddress = async () => {
+    if (!locationAddress.trim()) {
+      toast.error("Please enter an address");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.olamaps.io/places/v1/geocode?address=${encodeURIComponent(locationAddress)}&api_key=${import.meta.env.VITE_OLA_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      
+      if (data.geocodingResults?.[0]) {
+        const result = data.geocodingResults[0];
+        setLocationLat(result.geometry.location.lat);
+        setLocationLng(result.geometry.location.lng);
+        toast.success("Address geocoded successfully");
+      } else {
+        toast.error("Could not find coordinates for this address");
+      }
+    } catch (error) {
+      toast.error("Failed to geocode address");
+    }
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate location for sellers
+    if ((selectedRole === "retailer" || selectedRole === "wholesaler") && (!locationLat || !locationLng)) {
+      toast.error("Please set your location. It's required for sellers.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -44,6 +118,10 @@ const Auth = () => {
           data: {
             full_name: fullName,
             phone: phone,
+            role: selectedRole,
+            location_address: locationAddress || null,
+            location_lat: locationLat,
+            location_lng: locationLng,
           },
         },
       });
@@ -51,8 +129,7 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Do NOT insert role here; unauthenticated signups have no session and will fail RLS
-        toast.success("Account created! Verify your email, then sign in to choose your role.");
+        toast.success("Account created! Please check your email to verify.");
         navigate("/");
       }
     } catch (error: any) {
@@ -251,6 +328,59 @@ const Auth = () => {
                     minLength={6}
                   />
                 </div>
+
+                {(selectedRole === "retailer" || selectedRole === "wholesaler") && (
+                  <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/20">
+                    <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-500">
+                      <MapPin className="h-4 w-4" />
+                      Location (Required for sellers)
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="locationAddress">Shop Address</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="locationAddress"
+                          value={locationAddress}
+                          onChange={(e) => setLocationAddress(e.target.value)}
+                          placeholder="Enter your shop address"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleCaptureCurrentLocation}
+                          disabled={capturingLocation}
+                          title="Use current location"
+                        >
+                          {capturingLocation ? (
+                            <Navigation className="h-4 w-4 animate-pulse" />
+                          ) : (
+                            <Navigation className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleGeocodeAddress}
+                      className="w-full"
+                      disabled={!locationAddress.trim()}
+                    >
+                      <MapPin className="mr-2 h-4 w-4" />
+                      Convert Address to Coordinates
+                    </Button>
+
+                    {locationLat && locationLng && (
+                      <p className="text-xs text-muted-foreground">
+                        ✓ Coordinates: {locationLat.toFixed(6)}, {locationLng.toFixed(6)}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Creating account..." : "Create Account"}
                 </Button>
