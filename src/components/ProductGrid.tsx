@@ -265,7 +265,7 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-primary">
-              ${product.price.toFixed(2)}
+              ₹{product.price.toFixed(2)}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               {product.stock_quantity} units available
