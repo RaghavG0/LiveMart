@@ -354,6 +354,29 @@ export type Database = {
         Returns: boolean
       }
       is_wholesaler: { Args: { _user_id: string }; Returns: boolean }
+      list_wholesaler_products: {
+        Args: { _search?: string }
+        Returns: {
+          availability_date: string | null
+          category_id: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_available: boolean | null
+          name: string
+          price: number
+          seller_id: string
+          stock_quantity: number
+          updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       app_role: "customer" | "retailer" | "wholesaler"
