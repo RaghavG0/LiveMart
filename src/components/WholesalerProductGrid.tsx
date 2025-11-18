@@ -48,43 +48,38 @@ const WholesalerProductGrid = () => {
 
   const fetchWholesalerProducts = async () => {
     try {
-      // First, get all wholesaler user IDs
-      const { data: wholesalers, error: wholesalersError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "wholesaler");
-
-      if (wholesalersError) throw wholesalersError;
-
-      const wholesalerIds = wholesalers?.map((w) => w.user_id) || [];
-
-      if (wholesalerIds.length === 0) {
-        setProducts([]);
-        setLoading(false);
-        return;
-      }
-
-      // Then fetch products from those wholesalers
-      let query = supabase
-        .from("products")
-        .select(`
-          *,
-          profiles!products_seller_id_fkey (
-            full_name,
-            location_address
-          )
-        `)
-        .eq("is_available", true)
-        .in("seller_id", wholesalerIds);
-
-      if (searchQuery) {
-        query = query.ilike("name", `%${searchQuery}%`);
-      }
-
-      const { data, error } = await query;
+      // Use RPC to fetch wholesaler products with proper security
+      const { data, error } = await supabase
+        .rpc('list_wholesaler_products', { _search: searchQuery || null });
 
       if (error) throw error;
-      setProducts(data as any || []);
+
+      // Fetch profiles for the products
+      if (data && data.length > 0) {
+        const sellerIds = [...new Set(data.map((p: any) => p.seller_id))];
+        
+        const { data: profiles, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, location_address")
+          .in("id", sellerIds);
+
+        if (profilesError) {
+          console.error("Error fetching profiles:", profilesError);
+        }
+
+        // Map profiles to products
+        const productsWithProfiles = data.map((product: any) => ({
+          ...product,
+          profiles: profiles?.find((p) => p.id === product.seller_id) || {
+            full_name: "Unknown Seller",
+            location_address: null
+          }
+        }));
+
+        setProducts(productsWithProfiles);
+      } else {
+        setProducts([]);
+      }
     } catch (error) {
       console.error("Error fetching wholesaler products:", error);
       toast.error("Failed to load wholesaler products");
