@@ -3,10 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Store } from "lucide-react";
+import { ShoppingCart, Store, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 
 interface WholesalerProduct {
   id: string;
@@ -33,6 +36,11 @@ const WholesalerProductGrid = () => {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showCart, setShowCart] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchWholesalerProducts();
@@ -116,12 +124,27 @@ const WholesalerProductGrid = () => {
     );
   };
 
+  const handleCheckout = () => {
+    if (cart.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
+    setShowCart(false);
+    setShowCheckout(true);
+  };
+
   const placeOrder = async () => {
+    if (!deliveryAddress.trim()) {
+      toast.error("Please enter a delivery address");
+      return;
+    }
+
     if (cart.length === 0) {
       toast.error("Cart is empty");
       return;
     }
 
+    setSubmitting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -154,7 +177,8 @@ const WholesalerProductGrid = () => {
             total_amount: totalAmount,
             status: "pending",
             order_type: "retailer",
-            delivery_address: "Retailer pickup", // Can be customized
+            delivery_address: deliveryAddress,
+            notes: notes || null,
           })
           .select()
           .single();
@@ -178,9 +202,14 @@ const WholesalerProductGrid = () => {
 
       toast.success("Orders placed successfully!");
       setCart([]);
+      setShowCheckout(false);
+      setDeliveryAddress("");
+      setNotes("");
     } catch (error) {
       console.error("Error placing order:", error);
       toast.error("Failed to place order");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -217,70 +246,17 @@ const WholesalerProductGrid = () => {
         </div>
         
         {cart.length > 0 && (
-          <Card className="w-full md:w-auto">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Cart Total</p>
-                  <p className="text-2xl font-bold">${cartTotal.toFixed(2)}</p>
-                  <p className="text-xs text-muted-foreground">{cart.length} items</p>
-                </div>
-                <Button onClick={placeOrder}>
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Place Order
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowCart(true)}>
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              View Cart ({cart.length})
+            </Button>
+            <Button onClick={handleCheckout}>
+              Proceed to Checkout
+            </Button>
+          </div>
         )}
       </div>
-
-      {cart.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Shopping Cart</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {cart.map((item) => (
-                <div
-                  key={item.product.id}
-                  className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg"
-                >
-                  <div className="flex-1">
-                    <p className="font-medium">{item.product.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      ${item.product.price.toFixed(2)} × {item.quantity} = $
-                      {(item.product.price * item.quantity).toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={item.quantity}
-                      onChange={(e) =>
-                        updateCartQuantity(
-                          item.product.id,
-                          parseInt(e.target.value) || 0
-                        )
-                      }
-                      className="w-20"
-                    />
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeFromCart(item.product.id)}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((product) => (
@@ -300,6 +276,154 @@ const WholesalerProductGrid = () => {
           </p>
         </div>
       )}
+
+      {/* Cart Dialog */}
+      <Dialog open={showCart} onOpenChange={setShowCart}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Shopping Cart</DialogTitle>
+            <DialogDescription>
+              Review your items before checkout
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {cart.map((item) => (
+              <div
+                key={item.product.id}
+                className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg"
+              >
+                {item.product.image_url && (
+                  <img
+                    src={item.product.image_url}
+                    alt={item.product.name}
+                    className="w-20 h-20 object-cover rounded"
+                  />
+                )}
+                <div className="flex-1">
+                  <h4 className="font-semibold">{item.product.name}</h4>
+                  <p className="text-sm text-muted-foreground">
+                    ${item.product.price.toFixed(2)} × {item.quantity}
+                  </p>
+                  <p className="text-sm font-medium mt-1">
+                    Subtotal: ${(item.product.price * item.quantity).toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    max={item.product.stock_quantity}
+                    value={item.quantity}
+                    onChange={(e) =>
+                      updateCartQuantity(
+                        item.product.id,
+                        parseInt(e.target.value) || 1
+                      )
+                    }
+                    className="w-20"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeFromCart(item.product.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Separator />
+            <div className="flex justify-between items-center text-lg font-bold">
+              <span>Total:</span>
+              <span>${cartTotal.toFixed(2)}</span>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowCart(false)}>
+                Continue Shopping
+              </Button>
+              <Button onClick={handleCheckout}>
+                Proceed to Checkout
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Checkout Dialog */}
+      <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Complete Your Order</DialogTitle>
+            <DialogDescription>
+              Enter delivery details to place your wholesaler order
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="delivery-address">Delivery Address *</Label>
+                <Textarea
+                  id="delivery-address"
+                  placeholder="Enter your complete delivery address..."
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  rows={3}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Any special instructions or notes for the wholesaler..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Order Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {cart.map((item) => (
+                  <div
+                    key={item.product.id}
+                    className="flex justify-between text-sm"
+                  >
+                    <span>
+                      {item.product.name} × {item.quantity}
+                    </span>
+                    <span>${(item.product.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+                <Separator />
+                <div className="flex justify-between font-bold text-lg pt-2">
+                  <span>Total:</span>
+                  <span>${cartTotal.toFixed(2)}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCheckout(false);
+                  setShowCart(true);
+                }}
+              >
+                Back to Cart
+              </Button>
+              <Button onClick={placeOrder} disabled={submitting}>
+                {submitting ? "Placing Order..." : "Place Order"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
