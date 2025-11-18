@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ interface ProductGridProps {
 const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId }: ProductGridProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchProducts();
@@ -217,7 +219,11 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {products.map((product) => (
-        <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+        <Card 
+          key={product.id} 
+          className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+          onClick={() => navigate(`/product/${product.id}`)}
+        >
           <div className="relative h-48 bg-muted">
             {product.image_url ? (
               <img
@@ -234,7 +240,10 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
               size="icon"
               variant="secondary"
               className="absolute top-2 right-2 rounded-full"
-              onClick={() => handleAddToWishlist(product.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddToWishlist(product.id);
+              }}
             >
               <Heart className="h-4 w-4" />
             </Button>
@@ -280,7 +289,10 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
           <CardFooter>
             <Button
               className="w-full"
-              onClick={() => handleAddToCart(product.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddToCart(product.id);
+              }}
               disabled={product.stock_quantity === 0}
             >
               <ShoppingCart className="h-4 w-4 mr-2" />
