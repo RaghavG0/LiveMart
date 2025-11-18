@@ -226,7 +226,11 @@ const Cart = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button className="w-full" size="lg">
+                  <Button 
+                    className="w-full" 
+                    size="lg"
+                    onClick={() => navigate("/checkout")}
+                  >
                     Proceed to Checkout
                   </Button>
                 </CardFooter>
