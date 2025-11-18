@@ -39,9 +39,28 @@ const Checkout = () => {
       } else {
         setUser(session.user);
         fetchCartItems(session.user.id);
+        fetchUserProfile(session.user.id);
       }
     });
   }, [navigate]);
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("location_address")
+        .eq("id", userId)
+        .single();
+
+      if (error) throw error;
+      
+      if (data?.location_address) {
+        setDeliveryAddress(data.location_address);
+      }
+    } catch (error: any) {
+      console.error("Failed to load user profile:", error);
+    }
+  };
 
   const fetchCartItems = async (userId: string) => {
     try {
