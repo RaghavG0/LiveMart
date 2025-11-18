@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Heart, User as UserIcon, LogOut, Search } from "lucide-react";
+import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import ProductGrid from "@/components/ProductGrid";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import FilterPanel, { FilterState } from "@/components/FilterPanel";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { LocationPermission } from "@/components/LocationPermission";
+import MapView from "@/components/MapView";
 
 interface CustomerDashboardProps {
   user: User;
@@ -21,6 +22,8 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [maxPrice, setMaxPrice] = useState(1000);
   const [showLocationBanner, setShowLocationBanner] = useState(true);
+  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
+  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     priceRange: [0, 1000],
     minStock: 0,
@@ -98,9 +101,29 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Welcome back!</h2>
-          <p className="text-muted-foreground">Discover amazing products from local retailers</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">Welcome back!</h2>
+            <p className="text-muted-foreground">Discover amazing products from local retailers</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid className="h-4 w-4 mr-2" />
+              Grid View
+            </Button>
+            <Button
+              variant={viewMode === 'map' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('map')}
+            >
+              <Map className="h-4 w-4 mr-2" />
+              Map View
+            </Button>
+          </div>
         </div>
 
         {/* Location Permission Banner */}
@@ -114,27 +137,39 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
           />
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <aside className="lg:col-span-1">
-            <FilterPanel 
-              filters={filters} 
-              onFiltersChange={setFilters}
-              maxPrice={maxPrice}
-              hasLocation={!!location}
-            />
-          </aside>
-          <div className="lg:col-span-3">
-            <ProductGrid 
-              searchQuery={searchQuery}
-              priceRange={filters.priceRange}
-              minStock={filters.minStock}
-              inStockOnly={filters.inStockOnly}
-              sortBy={filters.sortBy}
-              userLocation={location}
-              maxDistance={filters.maxDistance}
-            />
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <aside className="lg:col-span-1">
+              <FilterPanel 
+                filters={filters} 
+                onFiltersChange={setFilters}
+                maxPrice={maxPrice}
+                hasLocation={!!location}
+              />
+            </aside>
+            <div className="lg:col-span-3">
+              <ProductGrid 
+                searchQuery={searchQuery}
+                priceRange={filters.priceRange}
+                minStock={filters.minStock}
+                inStockOnly={filters.inStockOnly}
+                sortBy={filters.sortBy}
+                userLocation={location}
+                maxDistance={filters.maxDistance}
+                sellerId={selectedSellerId}
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          <MapView 
+            userLocation={location}
+            onSellerSelect={(sellerId) => {
+              setSelectedSellerId(sellerId);
+              setViewMode('grid');
+              toast.success('Showing products from selected shop');
+            }}
+          />
+        )}
       </main>
     </div>
   );
