@@ -177,7 +177,17 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
 
   return (
     <div className="relative">
-      <div ref={mapContainer} className="w-full h-[600px] rounded-lg border shadow-lg" />
+      <div className="relative h-[600px]">
+        <div ref={mapContainer} className="w-full h-full rounded-lg border shadow-lg" />
+        
+        {sellers.length === 0 && !loading && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border z-10">
+            <p className="text-sm text-muted-foreground">
+              No sellers found with location data
+            </p>
+          </div>
+        )}
+      </div>
       
       {selectedSeller && (
         <Card className="absolute top-4 right-4 p-4 max-w-xs shadow-xl">

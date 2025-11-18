@@ -137,6 +137,18 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         return;
       }
 
+      // Check if user has location set (required for sellers)
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("location_lat, location_lng")
+        .eq("id", userData.user.id)
+        .single();
+
+      if (!profile?.location_lat || !profile?.location_lng) {
+        toast.error("Please set your location in Account Settings before adding products");
+        return;
+      }
+
       const imageUrl = await uploadImage(userData.user.id);
 
       const productData = {
