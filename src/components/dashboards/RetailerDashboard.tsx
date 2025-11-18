@@ -2,13 +2,14 @@ import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Package, BarChart3 } from "lucide-react";
+import { LogOut, Plus, Package, BarChart3, Store } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProductForm } from "@/components/products/ProductForm";
 import { ProductList } from "@/components/products/ProductList";
+import WholesalerProductGrid from "@/components/WholesalerProductGrid";
 
 interface RetailerDashboardProps {
   user: User;
@@ -81,7 +82,11 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
           <TabsList>
             <TabsTrigger value="products">
               <Package className="h-4 w-4 mr-2" />
-              Products
+              My Products
+            </TabsTrigger>
+            <TabsTrigger value="wholesalers">
+              <Store className="h-4 w-4 mr-2" />
+              Wholesaler Marketplace
             </TabsTrigger>
             <TabsTrigger value="orders">
               <BarChart3 className="h-4 w-4 mr-2" />
@@ -95,6 +100,14 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
               onAdd={handleAddProduct}
               refreshTrigger={refreshTrigger}
             />
+          </TabsContent>
+
+          <TabsContent value="wholesalers" className="space-y-4">
+            <h3 className="text-xl font-semibold">Browse & Order from Wholesalers</h3>
+            <p className="text-muted-foreground mb-4">
+              Discover products from wholesalers and place bulk orders directly
+            </p>
+            <WholesalerProductGrid />
           </TabsContent>
 
           <TabsContent value="orders" className="space-y-4">
