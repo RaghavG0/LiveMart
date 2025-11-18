@@ -27,15 +27,16 @@ interface ProductGridProps {
   sortBy?: "none" | "price-asc" | "price-desc" | "distance-asc";
   userLocation?: { lat: number; lng: number } | null;
   maxDistance?: number | null;
+  sellerId?: string | null;
 }
 
-const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance }: ProductGridProps) => {
+const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId }: ProductGridProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchProducts();
-  }, [searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance]);
+  }, [searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId]);
 
   const fetchProducts = async () => {
     try {
@@ -84,6 +85,10 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
 
         if (inStockOnly) {
           query = query.gt("stock_quantity", 0);
+        }
+
+        if (sellerId) {
+          query = query.eq("seller_id", sellerId);
         }
 
         // Apply sorting
