@@ -1,24 +1,29 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingBag, Store, Warehouse, TrendingUp, Shield, Clock } from "lucide-react";
 
 const LandingPage = () => {
+  const navigate = useNavigate();
+  
   const features = [
     {
       icon: ShoppingBag,
       title: "For Customers",
       description: "Browse thousands of products, compare prices, and get fast delivery to your doorstep.",
+      role: "customer" as const,
     },
     {
       icon: Store,
       title: "For Retailers",
       description: "Manage your inventory, reach more customers, and grow your business online.",
+      role: "retailer" as const,
     },
     {
       icon: Warehouse,
       title: "For Wholesalers",
       description: "Connect with retailers, manage bulk orders, and streamline your supply chain.",
+      role: "wholesaler" as const,
     },
   ];
 
@@ -69,13 +74,20 @@ const LandingPage = () => {
         <h2 className="text-3xl font-bold text-center mb-12">Built for Everyone</h2>
         <div className="grid md:grid-cols-3 gap-8">
           {features.map((feature, index) => (
-            <Card key={index} className="border-2 hover:border-primary transition-colors shadow-md hover:shadow-lg">
+            <Card 
+              key={index} 
+              className="border-2 hover:border-primary transition-all shadow-md hover:shadow-lg cursor-pointer"
+              onClick={() => navigate(`/auth?role=${feature.role}`)}
+            >
               <CardHeader>
                 <feature.icon className="h-12 w-12 text-primary mb-4" />
                 <CardTitle>{feature.title}</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-base">{feature.description}</CardDescription>
+                <Button variant="link" className="p-0 h-auto mt-4">
+                  Get Started →
+                </Button>
               </CardContent>
             </Card>
           ))}
