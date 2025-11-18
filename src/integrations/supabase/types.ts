@@ -121,8 +121,10 @@ export type Database = {
           delivery_lng: number | null
           id: string
           notes: string | null
+          order_type: Database["public"]["Enums"]["order_type"]
           payment_method: string | null
           payment_status: string | null
+          seller_id: string | null
           status: Database["public"]["Enums"]["order_status"] | null
           total_amount: number
           updated_at: string | null
@@ -135,8 +137,10 @@ export type Database = {
           delivery_lng?: number | null
           id?: string
           notes?: string | null
+          order_type?: Database["public"]["Enums"]["order_type"]
           payment_method?: string | null
           payment_status?: string | null
+          seller_id?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
           total_amount: number
           updated_at?: string | null
@@ -149,8 +153,10 @@ export type Database = {
           delivery_lng?: number | null
           id?: string
           notes?: string | null
+          order_type?: Database["public"]["Enums"]["order_type"]
           payment_method?: string | null
           payment_status?: string | null
+          seller_id?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
           total_amount?: number
           updated_at?: string | null
@@ -357,6 +363,7 @@ export type Database = {
         | "shipped"
         | "delivered"
         | "cancelled"
+      order_type: "customer" | "retailer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -493,6 +500,7 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
+      order_type: ["customer", "retailer"],
     },
   },
 } as const

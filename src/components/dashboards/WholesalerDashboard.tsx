@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Package, TrendingUp } from "lucide-react";
+import { LogOut, Plus, Package, TrendingUp, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProductForm } from "@/components/products/ProductForm";
 import { ProductList } from "@/components/products/ProductList";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface WholesalerDashboardProps {
   user: User;
@@ -26,11 +30,34 @@ interface Product {
   image_url?: string;
 }
 
+type OrderStatus = "cancelled" | "confirmed" | "delivered" | "pending" | "processing" | "shipped";
+
+interface RetailerOrder {
+  id: string;
+  customer_id: string;
+  total_amount: number;
+  status: OrderStatus;
+  created_at: string;
+  delivery_address: string;
+  payment_method?: string;
+  order_items: Array<{
+    id: string;
+    quantity: number;
+    price_at_purchase: number;
+    products: {
+      name: string;
+      image_url?: string;
+    };
+  }>;
+}
+
 const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
   const navigate = useNavigate();
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [retailerOrders, setRetailerOrders] = useState<RetailerOrder[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -53,6 +80,71 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
     setEditingProduct(undefined);
     setRefreshTrigger((prev) => prev + 1);
   };
+
+  const fetchRetailerOrders = async () => {
+    setLoading(true);
+    try {
+      const { data: ordersData, error } = await supabase
+        .from("orders")
+        .select(`
+          id,
+          customer_id,
+          total_amount,
+          status,
+          created_at,
+          delivery_address,
+          payment_method,
+          order_items(
+            id,
+            quantity,
+            price_at_purchase,
+            products(name, image_url)
+          )
+        `)
+        .eq("order_type", "retailer")
+        .eq("seller_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch retailer profiles separately
+      const retailerIds = ordersData?.map(o => o.customer_id) || [];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone")
+        .in("id", retailerIds);
+
+      const ordersWithProfiles = ordersData?.map(order => ({
+        ...order,
+        retailer: profiles?.find(p => p.id === order.customer_id)
+      })) || [];
+
+      setRetailerOrders(ordersWithProfiles as any);
+    } catch (error: any) {
+      toast.error("Failed to fetch retailer orders: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: newStatus })
+        .eq("id", orderId);
+
+      if (error) throw error;
+      toast.success("Order status updated successfully");
+      fetchRetailerOrders();
+    } catch (error: any) {
+      toast.error("Failed to update order status: " + error.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchRetailerOrders();
+  }, [user.id]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
@@ -98,11 +190,97 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
           </TabsContent>
 
           <TabsContent value="retailers" className="space-y-4">
-            <h3 className="text-xl font-semibold">Retailer Orders</h3>
-            <div className="text-center py-12 text-muted-foreground">
-              <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No retailer orders yet. They'll appear here once retailers start ordering!</p>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Retailer Orders & Transaction History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">Loading orders...</p>
+                  </div>
+                ) : retailerOrders.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No retailer orders yet. They'll appear here once retailers start ordering!</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order ID</TableHead>
+                        <TableHead>Retailer</TableHead>
+                        <TableHead>Items</TableHead>
+                        <TableHead>Total Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {retailerOrders.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-mono text-xs">
+                            {order.id.slice(0, 8)}...
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{(order as any).retailer?.full_name || "Unknown"}</p>
+                              {(order as any).retailer?.phone && (
+                                <p className="text-xs text-muted-foreground">{(order as any).retailer.phone}</p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              {order.order_items.map((item) => (
+                                <p key={item.id} className="text-sm">
+                                  {item.products.name} × {item.quantity}
+                                </p>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            ₹{order.total_amount.toFixed(2)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              order.status === "delivered" ? "default" :
+                              order.status === "confirmed" ? "secondary" :
+                              order.status === "cancelled" ? "destructive" :
+                              "outline"
+                            }>
+                              {order.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {new Date(order.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={order.status}
+                              onValueChange={(value) => handleStatusUpdate(order.id, value as OrderStatus)}
+                            >
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="confirmed">Confirmed</SelectItem>
+                                <SelectItem value="processing">Processing</SelectItem>
+                                <SelectItem value="shipped">Shipped</SelectItem>
+                                <SelectItem value="delivered">Delivered</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
