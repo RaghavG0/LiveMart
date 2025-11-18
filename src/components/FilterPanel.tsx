@@ -11,16 +11,19 @@ export interface FilterState {
   priceRange: [number, number];
   minStock: number;
   inStockOnly: boolean;
-  sortBy: "none" | "price-asc" | "price-desc";
+  sortBy: "none" | "price-asc" | "price-desc" | "distance-asc";
+  maxDistance: number | null;
+  nearbyOnly: boolean;
 }
 
 interface FilterPanelProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   maxPrice: number;
+  hasLocation?: boolean;
 }
 
-const FilterPanel = ({ filters, onFiltersChange, maxPrice }: FilterPanelProps) => {
+const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }: FilterPanelProps) => {
   const handlePriceChange = (index: 0 | 1, increment: boolean) => {
     const newRange: [number, number] = [...filters.priceRange];
     const step = 50;
@@ -182,6 +185,46 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice }: FilterPanelProps) =
             In Stock Only
           </Label>
         </div>
+
+        {/* Distance Filter - Only show if location is available */}
+        {hasLocation && (
+          <>
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Max Distance</Label>
+                <span className="text-sm text-muted-foreground">
+                  {filters.maxDistance ? `${filters.maxDistance} km` : 'Any'}
+                </span>
+              </div>
+              <Slider
+                value={[filters.maxDistance || 50]}
+                onValueChange={([value]) => 
+                  onFiltersChange({ ...filters, maxDistance: value })
+                }
+                min={1}
+                max={50}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="nearby-only" 
+                  checked={filters.nearbyOnly}
+                  onCheckedChange={(checked) => 
+                    onFiltersChange({ 
+                      ...filters, 
+                      nearbyOnly: checked as boolean,
+                      maxDistance: checked ? (filters.maxDistance || 10) : null
+                    })
+                  }
+                />
+                <Label htmlFor="nearby-only" className="text-sm font-medium cursor-pointer">
+                  Nearby Shops Only
+                </Label>
+              </div>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
