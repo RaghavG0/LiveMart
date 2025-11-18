@@ -131,6 +131,34 @@ const Account = () => {
     );
   };
 
+  const handleGeocodeAddress = async () => {
+    if (!profile.location_address?.trim()) {
+      toast.error("Please enter an address");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.olamaps.io/places/v1/geocode?address=${encodeURIComponent(profile.location_address)}&api_key=${import.meta.env.VITE_OLA_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      
+      if (data.geocodingResults?.[0]) {
+        const result = data.geocodingResults[0];
+        setProfile({
+          ...profile,
+          location_lat: result.geometry.location.lat,
+          location_lng: result.geometry.location.lng,
+        });
+        toast.success("Address geocoded successfully");
+      } else {
+        toast.error("Could not find coordinates for this address");
+      }
+    } catch (error) {
+      toast.error("Failed to geocode address");
+    }
+  };
+
   const handleLocationSelect = (lat: number, lng: number, address: string) => {
     setProfile({
       ...profile,
@@ -261,14 +289,28 @@ const Account = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  value={profile.location_address || ""}
-                  onChange={(e) =>
-                    setProfile({ ...profile, location_address: e.target.value })
-                  }
-                  placeholder="Enter your address"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="address"
+                    value={profile.location_address || ""}
+                    onChange={(e) =>
+                      setProfile({ ...profile, location_address: e.target.value })
+                    }
+                    placeholder="Enter your address"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleGeocodeAddress}
+                    disabled={!profile.location_address?.trim()}
+                  >
+                    <MapPin className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Click the pin icon to convert address to coordinates
+                </p>
               </div>
 
               <Button
