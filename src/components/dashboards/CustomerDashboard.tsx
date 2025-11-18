@@ -21,6 +21,7 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
     priceRange: [0, 1000],
     minStock: 0,
     inStockOnly: false,
+    sortBy: "none",
   });
 
   useEffect(() => {
@@ -110,6 +111,7 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
               priceRange={filters.priceRange}
               minStock={filters.minStock}
               inStockOnly={filters.inStockOnly}
+              sortBy={filters.sortBy}
             />
           </div>
         </div>

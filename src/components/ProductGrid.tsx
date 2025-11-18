@@ -21,15 +21,16 @@ interface ProductGridProps {
   priceRange?: [number, number];
   minStock?: number;
   inStockOnly?: boolean;
+  sortBy?: "none" | "price-asc" | "price-desc";
 }
 
-const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly }: ProductGridProps) => {
+const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy }: ProductGridProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchProducts();
-  }, [searchQuery, priceRange, minStock, inStockOnly]);
+  }, [searchQuery, priceRange, minStock, inStockOnly, sortBy]);
 
   const fetchProducts = async () => {
     try {
@@ -52,6 +53,13 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly }: Product
 
       if (inStockOnly) {
         query = query.gt("stock_quantity", 0);
+      }
+
+      // Apply sorting
+      if (sortBy === "price-asc") {
+        query = query.order("price", { ascending: true });
+      } else if (sortBy === "price-desc") {
+        query = query.order("price", { ascending: false });
       }
 
       const { data, error } = await query;
