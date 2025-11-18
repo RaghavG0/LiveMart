@@ -169,7 +169,7 @@ export const ProductList = ({ onEdit, onAdd, refreshTrigger }: ProductListProps)
                     </TableCell>
                     <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell>{product.categories?.name || "—"}</TableCell>
-                    <TableCell>${product.price.toFixed(2)}</TableCell>
+                    <TableCell>₹{product.price.toFixed(2)}</TableCell>
                     <TableCell>
                       <Badge variant={product.stock_quantity > 0 ? "default" : "destructive"}>
                         {product.stock_quantity}

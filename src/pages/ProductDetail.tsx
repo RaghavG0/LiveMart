@@ -249,7 +249,7 @@ const ProductDetail = () => {
 
             <div className="flex items-center gap-4">
               <span className="text-3xl font-bold text-primary">
-                ${product.price.toFixed(2)}
+                ₹{product.price.toFixed(2)}
               </span>
               {product.stock_quantity > 0 ? (
                 <Badge variant="default">In Stock ({product.stock_quantity})</Badge>
@@ -306,7 +306,7 @@ const ProductDetail = () => {
                   <CardContent className="p-4">
                     <CardTitle className="text-lg mb-2">{similarProduct.name}</CardTitle>
                     <CardDescription className="text-xl font-bold text-primary">
-                      ${similarProduct.price.toFixed(2)}
+                      ₹{similarProduct.price.toFixed(2)}
                     </CardDescription>
                   </CardContent>
                   <CardFooter className="p-4 pt-0">

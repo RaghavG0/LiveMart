@@ -78,7 +78,7 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
                   <Minus className="h-3 w-3" />
                 </Button>
                 <div className="flex-1 text-center font-medium">
-                  ${filters.priceRange[0]}
+                  ₹{filters.priceRange[0]}
                 </div>
                 <Button
                   variant="outline"
@@ -106,7 +106,7 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
                   <Minus className="h-3 w-3" />
                 </Button>
                 <div className="flex-1 text-center font-medium">
-                  ${filters.priceRange[1]}
+                  ₹{filters.priceRange[1]}
                 </div>
                 <Button
                   variant="outline"

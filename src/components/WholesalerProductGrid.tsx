@@ -297,10 +297,10 @@ const WholesalerProductGrid = () => {
                 <div className="flex-1">
                   <h4 className="font-semibold">{item.product.name}</h4>
                   <p className="text-sm text-muted-foreground">
-                    ${item.product.price.toFixed(2)} × {item.quantity}
+                    ₹{item.product.price.toFixed(2)} × {item.quantity}
                   </p>
                   <p className="text-sm font-medium mt-1">
-                    Subtotal: ${(item.product.price * item.quantity).toFixed(2)}
+                    Subtotal: ₹{(item.product.price * item.quantity).toFixed(2)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -330,7 +330,7 @@ const WholesalerProductGrid = () => {
             <Separator />
             <div className="flex justify-between items-center text-lg font-bold">
               <span>Total:</span>
-              <span>${cartTotal.toFixed(2)}</span>
+              <span>₹{cartTotal.toFixed(2)}</span>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setShowCart(false)}>
@@ -391,13 +391,13 @@ const WholesalerProductGrid = () => {
                     <span>
                       {item.product.name} × {item.quantity}
                     </span>
-                    <span>${(item.product.price * item.quantity).toFixed(2)}</span>
+                    <span>₹{(item.product.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
                 <Separator />
                 <div className="flex justify-between font-bold text-lg pt-2">
                   <span>Total:</span>
-                  <span>${cartTotal.toFixed(2)}</span>
+                  <span>₹{cartTotal.toFixed(2)}</span>
                 </div>
               </CardContent>
             </Card>
@@ -474,7 +474,7 @@ const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
       </CardHeader>
       <CardContent>
         <p className="text-2xl font-bold text-primary">
-          ${product.price.toFixed(2)}
+          ₹{product.price.toFixed(2)}
         </p>
         <p className="text-sm text-muted-foreground mt-1">
           {product.stock_quantity} units available
