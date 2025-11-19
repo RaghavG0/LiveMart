@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { ArrowLeft, Package } from "lucide-react";
 import { User } from "@supabase/supabase-js";
+import OrderStatusBadge from "@/components/OrderStatusBadge";
 import {
   Accordion,
   AccordionContent,
@@ -51,6 +52,27 @@ const Orders = () => {
         fetchOrders(session.user.id);
       }
     });
+
+    // Real-time subscription for order updates
+    const channel = supabase
+      .channel('customer-orders')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => {
+          // Refetch orders when any order is updated
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
+              fetchOrders(session.user.id);
+            }
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [navigate]);
 
   const fetchOrders = async (userId: string) => {
@@ -86,24 +108,6 @@ const Orders = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      pending: "bg-yellow-500",
-      confirmed: "bg-blue-500",
-      processing: "bg-indigo-500",
-      shipped: "bg-purple-500",
-      delivered: "bg-green-500",
-      cancelled: "bg-red-500",
-    };
-    return colors[status] || "bg-gray-500";
-  };
-
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    if (status === "cancelled") return "destructive";
-    if (status === "delivered") return "default";
-    return "secondary";
   };
 
   const formatDate = (dateString: string) => {
@@ -172,9 +176,7 @@ const Orders = () => {
                         {formatDate(order.created_at)}
                       </p>
                     </div>
-                    <Badge variant={getStatusVariant(order.status)}>
-                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                    </Badge>
+                    <OrderStatusBadge status={order.status} />
                   </div>
                 </CardHeader>
                 <CardContent>
