@@ -34,11 +34,31 @@ interface ProductGridProps {
 const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId }: ProductGridProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wishlistItems, setWishlistItems] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchProducts();
+    fetchWishlist();
   }, [searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId]);
+
+  const fetchWishlist = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data } = await supabase
+        .from("wishlist_items")
+        .select("product_id")
+        .eq("user_id", session.user.id);
+
+      if (data) {
+        setWishlistItems(new Set(data.map(item => item.product_id)));
+      }
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -184,30 +204,38 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
         return;
       }
 
-      // Check if item already in wishlist
-      const { data: existing } = await supabase
-        .from("wishlist_items")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .eq("product_id", productId)
-        .single();
+      const isInWishlist = wishlistItems.has(productId);
 
-      if (existing) {
-        toast.info("Already in your wishlist");
-        return;
+      if (isInWishlist) {
+        // Remove from wishlist
+        const { error } = await supabase
+          .from("wishlist_items")
+          .delete()
+          .eq("user_id", session.user.id)
+          .eq("product_id", productId);
+
+        if (error) throw error;
+
+        setWishlistItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(productId);
+          return newSet;
+        });
+        toast.success("Removed from wishlist!");
+      } else {
+        // Add to wishlist
+        const { error } = await supabase
+          .from("wishlist_items")
+          .insert({ user_id: session.user.id, product_id: productId });
+
+        if (error) throw error;
+
+        setWishlistItems(prev => new Set(prev).add(productId));
+        toast.success("Added to wishlist!");
       }
-
-      // Insert new wishlist item
-      const { error } = await supabase
-        .from("wishlist_items")
-        .insert({ user_id: session.user.id, product_id: productId });
-
-      if (error) throw error;
-
-      toast.success("Added to wishlist!");
     } catch (error: any) {
-      if (error.code !== "PGRST116") { // Ignore "no rows returned" error
-        toast.error("Failed to add to wishlist");
+      if (error.code !== "PGRST116") {
+        toast.error("Failed to update wishlist");
       }
     }
   };
@@ -261,13 +289,19 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
             <Button
               size="icon"
               variant="secondary"
-              className="absolute top-2 right-2 rounded-full"
+              className={`absolute top-2 right-2 rounded-full ${
+                wishlistItems.has(product.id) ? 'bg-red-500 hover:bg-red-600' : ''
+              }`}
               onClick={(e) => {
                 e.stopPropagation();
                 handleAddToWishlist(product.id);
               }}
             >
-              <Heart className="h-4 w-4" />
+              <Heart 
+                className="h-4 w-4" 
+                fill={wishlistItems.has(product.id) ? "white" : "none"}
+                color={wishlistItems.has(product.id) ? "white" : "currentColor"}
+              />
             </Button>
           </div>
           <CardHeader>
