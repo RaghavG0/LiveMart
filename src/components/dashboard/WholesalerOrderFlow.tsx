@@ -83,8 +83,8 @@ export default function WholesalerOrderFlow({ wholesalerId }: WholesalerOrderFlo
         .eq("order_type", "retailer")
         .order("created_at", { ascending: false });
 
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter as any);
       }
 
       const { data: ordersData, error: ordersError } = await query;
@@ -191,7 +191,10 @@ export default function WholesalerOrderFlow({ wholesalerId }: WholesalerOrderFlo
       // Enrich orders with all data
       const enrichedOrders = ordersData.map((order) => {
         const profile = profiles?.find((p) => p.id === order.customer_id);
-        const history = (statusHistory || []).filter((h) => h.order_id === order.id);
+        const history = (statusHistory || []).filter((h: any) => h.order_id === order.id).map((h: any) => ({
+          ...h,
+          previous_status: h.old_status || h.previous_status,
+        }));
         const feedback = feedbackMap.get(order.id);
 
         return {
@@ -203,7 +206,7 @@ export default function WholesalerOrderFlow({ wholesalerId }: WholesalerOrderFlo
         };
       });
 
-      setOrders(enrichedOrders);
+      setOrders(enrichedOrders as any);
     } catch (error: any) {
       console.error("Error fetching orders:", error);
       toast.error("Failed to load orders");

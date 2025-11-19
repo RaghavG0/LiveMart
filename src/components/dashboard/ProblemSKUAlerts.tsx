@@ -59,7 +59,7 @@ export default function ProblemSKUAlerts({ wholesalerId }: ProblemSKUAlertsProps
     try {
       // Fetch active alerts
       const { data: alertsData, error: alertsError } = await supabase
-        .from("sku_performance_alerts")
+        .from("sku_performance_alerts" as any)
         .select("*")
         .eq("wholesaler_id", wholesalerId)
         .in("alert_status", ["active", "acknowledged"])
@@ -69,7 +69,7 @@ export default function ProblemSKUAlerts({ wholesalerId }: ProblemSKUAlertsProps
 
       // Fetch product details for alerts
       if (alertsData && alertsData.length > 0) {
-        const productIds = alertsData.map((alert) => alert.product_id);
+        const productIds = alertsData.map((alert: any) => alert.product_id);
         const { data: products, error: productsError } = await supabase
           .from("products")
           .select("id, name, image_url")
@@ -77,7 +77,7 @@ export default function ProblemSKUAlerts({ wholesalerId }: ProblemSKUAlertsProps
 
         if (productsError) throw productsError;
 
-        const enrichedAlerts = alertsData.map((alert) => {
+        const enrichedAlerts = alertsData.map((alert: any) => {
           const product = products?.find((p) => p.id === alert.product_id);
           return {
             ...alert,
@@ -86,7 +86,7 @@ export default function ProblemSKUAlerts({ wholesalerId }: ProblemSKUAlertsProps
           };
         });
 
-        setAlerts(enrichedAlerts);
+        setAlerts(enrichedAlerts as any);
       } else {
         setAlerts([]);
       }
@@ -100,8 +100,8 @@ export default function ProblemSKUAlerts({ wholesalerId }: ProblemSKUAlertsProps
 
   const fetchConfig = async () => {
     try {
-      const { data, error } = await supabase
-        .from("wholesaler_alert_config")
+    const { data, error } = await supabase
+      .from("wholesaler_alert_config" as any)
         .select("*")
         .eq("wholesaler_id", wholesalerId)
         .single();
@@ -109,7 +109,7 @@ export default function ProblemSKUAlerts({ wholesalerId }: ProblemSKUAlertsProps
       if (error && error.code !== "PGRST116") throw error;
 
       if (data) {
-        setConfig(data);
+        setConfig(data as any);
       }
     } catch (error: any) {
       console.error("Error fetching config:", error);
@@ -127,8 +127,8 @@ export default function ProblemSKUAlerts({ wholesalerId }: ProblemSKUAlertsProps
       }
 
       const { error } = await supabase
-        .from("sku_performance_alerts")
-        .update(updateData)
+        .from("sku_performance_alerts" as any)
+        .update(updateData as any)
         .eq("id", alertId);
 
       if (error) throw error;
@@ -145,12 +145,12 @@ export default function ProblemSKUAlerts({ wholesalerId }: ProblemSKUAlertsProps
     setSavingConfig(true);
     try {
       const { error } = await supabase
-        .from("wholesaler_alert_config")
+        .from("wholesaler_alert_config" as any)
         .upsert({
           wholesaler_id: wholesalerId,
           ...config,
           updated_at: new Date().toISOString(),
-        });
+        } as any);
 
       if (error) throw error;
 
@@ -158,7 +158,7 @@ export default function ProblemSKUAlerts({ wholesalerId }: ProblemSKUAlertsProps
       setShowConfigDialog(false);
 
       // Trigger alert check after config change
-      await supabase.rpc("check_sku_performance");
+      await supabase.rpc("check_sku_performance" as any);
     } catch (error: any) {
       console.error("Error saving config:", error);
       toast.error("Failed to save configuration");

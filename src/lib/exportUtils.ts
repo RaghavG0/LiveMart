@@ -175,7 +175,7 @@ export async function exportComplaintLogs(
 
     // Build query
     let query = supabase
-      .from("retailer_issue_reports")
+      .from("retailer_issue_reports" as any)
       .select(`
         *,
         products!inner(name),
@@ -250,7 +250,7 @@ export async function exportActiveAlerts(wholesalerId: string): Promise<void> {
     toast.info("Preparing alerts export...");
 
     const { data: alerts, error: alertsError } = await supabase
-      .from("sku_performance_alerts")
+      .from("sku_performance_alerts" as any)
       .select(`
         *,
         products!inner(name)

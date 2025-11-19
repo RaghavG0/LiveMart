@@ -62,7 +62,7 @@ export default function RetailerInsights({ wholesalerId }: RetailerInsightsProps
 
       // Fetch all issue reports for this wholesaler
       const { data: issuesData, error: issuesError } = await supabase
-        .from("retailer_issue_reports")
+        .from("retailer_issue_reports" as any)
         .select(`
           *,
           products!inner(name),
@@ -149,8 +149,8 @@ export default function RetailerInsights({ wholesalerId }: RetailerInsightsProps
       }
 
       const { error } = await supabase
-        .from("retailer_issue_reports")
-        .update(updateData)
+        .from("retailer_issue_reports" as any)
+        .update(updateData as any)
         .eq("id", issueId);
 
       if (error) throw error;
