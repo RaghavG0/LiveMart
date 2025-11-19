@@ -1,0 +1,20 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true
+  },
+  "typescript.validate.enable": true,
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  // Exclude Supabase edge functions from TypeScript checking
+  // These files are meant for Deno runtime and will show false errors in VS Code
+  "typescript.tsserver.pluginPaths": [],
+  "files.watcherExclude": {
+    "**/supabase/functions/**": true
+  }
+}
