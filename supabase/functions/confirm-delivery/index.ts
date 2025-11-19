@@ -1,130 +1,174 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Parse URL parameters
-    const url = new URL(req.url);
-    const token = url.searchParams.get('token');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Support both GET (from email link) and POST (from API)
+    let token: string;
+    
+    if (req.method === "GET") {
+      const url = new URL(req.url);
+      token = url.searchParams.get("token") || "";
+    } else {
+      const body = await req.json();
+      token = body.token;
+    }
 
     if (!token) {
-      return new Response(
-        JSON.stringify({ error: 'Token is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new Error("Token is required");
     }
 
-    // Create Supabase client (using service role for this operation)
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    console.log("Confirming delivery with token:", token.slice(0, 8) + "...");
 
     // Verify token
-    const { data: tokenData, error: tokenError } = await supabaseClient
-      .from('delivery_confirmation_tokens')
-      .select('*')
-      .eq('token', token)
-      .eq('used', false)
-      .single();
+    const { data: tokenRecord, error: tokenError } = await supabase
+      .from("delivery_confirmation_tokens")
+      .select("*, orders(*)")
+      .eq("token", token)
+      .maybeSingle();
 
-    if (tokenError || !tokenData) {
-      console.error('Token verification failed:', tokenError);
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired token' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (tokenError) {
+      console.error("Token lookup error:", tokenError);
+      throw new Error("Error validating token");
     }
 
-    // Check if token has expired
-    if (new Date(tokenData.expires_at) < new Date()) {
+    if (!tokenRecord) {
       return new Response(
-        JSON.stringify({ error: 'Token has expired' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get order details
-    const { data: orderData, error: orderError } = await supabaseClient
-      .from('orders')
-      .select('id, status, customer_id')
-      .eq('id', tokenData.order_id)
-      .single();
-
-    if (orderError || !orderData) {
-      console.error('Order not found:', orderError);
-      return new Response(
-        JSON.stringify({ error: 'Order not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if order is already delivered
-    if (orderData.status === 'delivered') {
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          message: 'Order already marked as delivered',
-          alreadyDelivered: true,
+        JSON.stringify({
+          success: false,
+          error: "INVALID_TOKEN",
+          message: "Invalid or expired delivery confirmation link",
         }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
       );
     }
+
+    if (tokenRecord.used) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "ALREADY_USED",
+          message: "This delivery has already been confirmed",
+          usedAt: tokenRecord.used_at,
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    const expiresAt = new Date(tokenRecord.expires_at);
+    const now = new Date();
+    
+    if (expiresAt < now) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "EXPIRED",
+          message: "This delivery confirmation link has expired",
+          expiredAt: tokenRecord.expires_at,
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    console.log("Token valid, updating order status...");
 
     // Update order status to delivered
-    const { error: updateError } = await supabaseClient
-      .from('orders')
-      .update({
-        status: 'delivered',
-        updated_at: new Date().toISOString(),
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from("orders")
+      .update({ 
+        status: "delivered", 
+        updated_at: new Date().toISOString() 
       })
-      .eq('id', tokenData.order_id);
+      .eq("id", tokenRecord.order_id)
+      .select()
+      .single();
 
-    if (updateError) throw updateError;
-
-    // Mark token as used
-    const { error: tokenUpdateError } = await supabaseClient
-      .from('delivery_confirmation_tokens')
-      .update({
-        used: true,
-        used_at: new Date().toISOString(),
-      })
-      .eq('id', tokenData.id);
-
-    if (tokenUpdateError) {
-      console.error('Failed to mark token as used:', tokenUpdateError);
+    if (updateError) {
+      console.error("Order update error:", updateError);
+      throw new Error("Failed to update order status");
     }
 
-    console.log('Delivery confirmed successfully for order:', tokenData.order_id);
+    console.log("Order updated to delivered:", updatedOrder.id);
+
+    // Mark token as used
+    const { error: tokenUpdateError } = await supabase
+      .from("delivery_confirmation_tokens")
+      .update({ 
+        used: true, 
+        used_at: new Date().toISOString() 
+      })
+      .eq("id", tokenRecord.id);
+
+    if (tokenUpdateError) {
+      console.error("Failed to mark token as used:", tokenUpdateError);
+    }
+
+    // Create order status history entry
+    const { error: historyError } = await supabase
+      .from("order_status_history")
+      .insert({
+        order_id: tokenRecord.order_id,
+        old_status: tokenRecord.orders.status,
+        new_status: "delivered",
+        notes: "Confirmed via delivery token",
+      });
+
+    if (historyError) {
+      console.error("Failed to create history entry:", historyError);
+    }
+
+    console.log("Delivery confirmation completed successfully");
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Delivery confirmed successfully',
-        orderId: tokenData.order_id,
+      JSON.stringify({ 
+        success: true, 
+        message: "Delivery confirmed successfully",
+        orderId: tokenRecord.order_id,
+        orderDetails: {
+          id: updatedOrder.id,
+          status: updatedOrder.status,
+          deliveryAddress: updatedOrder.delivery_address,
+          totalAmount: updatedOrder.total_amount,
+        }
       }),
       {
         status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
   } catch (error: any) {
-    console.error('Error in confirm-delivery function:', error);
+    console.error("Error in confirm-delivery:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: false,
+        error: error.message || "Internal server error"
+      }),
       {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
   }

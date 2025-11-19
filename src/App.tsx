@@ -17,6 +17,7 @@ import PaymentFailure from "./pages/PaymentFailure";
 import OrderTracking from "./pages/OrderTracking";
 import OfflineBooking from "./pages/OfflineBooking";
 import SellerOrderManagement from "./pages/SellerOrderManagement";
+import ConfirmDelivery from "./pages/ConfirmDelivery";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
           <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
           <Route path="/offline-booking" element={<OfflineBooking />} />
           <Route path="/seller-orders" element={<SellerOrderManagement />} />
+          <Route path="/orders/confirm-delivery" element={<ConfirmDelivery />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
