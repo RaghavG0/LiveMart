@@ -19,6 +19,7 @@ interface CartItem {
     name: string;
     price: number;
     image_url: string | null;
+    seller_id?: string;
   };
 }
 
@@ -31,6 +32,7 @@ const Checkout = () => {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -38,6 +40,7 @@ const Checkout = () => {
         navigate("/auth");
       } else {
         setUser(session.user);
+        fetchUserRole(session.user.id);
         fetchCartItems(session.user.id);
         fetchUserProfile(session.user.id);
       }
@@ -62,6 +65,21 @@ const Checkout = () => {
     }
   };
 
+  const fetchUserRole = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .single();
+
+      if (error) throw error;
+      setUserRole(data?.role || null);
+    } catch (error: any) {
+      console.error("Failed to load user role:", error);
+    }
+  };
+
   const fetchCartItems = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -73,7 +91,8 @@ const Checkout = () => {
             id,
             name,
             price,
-            image_url
+            image_url,
+            seller_id
           )
         `)
         .eq("user_id", userId);
@@ -117,6 +136,12 @@ const Checkout = () => {
 
     setSubmitting(true);
     try {
+      // Determine order type and seller_id based on user role
+      const orderType = userRole === 'retailer' ? 'retailer' : 'customer';
+      const sellerId = orderType === 'retailer' && cartItems.length > 0 
+        ? (cartItems[0].product as any).seller_id 
+        : null;
+
       // Create order
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
@@ -128,6 +153,8 @@ const Checkout = () => {
           status: "pending",
           payment_status: paymentMethod === "cod" ? "pending" : "pending",
           payment_method: paymentMethod,
+          order_type: orderType,
+          seller_id: sellerId,
         })
         .select()
         .single();
