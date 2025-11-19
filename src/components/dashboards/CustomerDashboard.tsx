@@ -26,6 +26,8 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
+  const [cartCount, setCartCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
   const [filters, setFilters] = useState<FilterState>({
     priceRange: [0, 1000],
     minStock: 0,
@@ -38,7 +40,22 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
   useEffect(() => {
     fetchMaxPrice();
     fetchUserProfile();
+    fetchCounts();
   }, []);
+
+  const fetchCounts = async () => {
+    try {
+      const [cartData, wishlistData] = await Promise.all([
+        supabase.from('cart_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('wishlist_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+      ]);
+
+      setCartCount(cartData.count || 0);
+      setWishlistCount(wishlistData.count || 0);
+    } catch (error) {
+      console.error('Error fetching counts:', error);
+    }
+  };
 
   const fetchUserProfile = async () => {
     const { data } = await supabase
@@ -97,11 +114,21 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/wishlist")}>
+              <Button variant="ghost" size="icon" onClick={() => navigate("/wishlist")} className="relative">
                 <Heart className="h-5 w-5" />
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {wishlistCount}
+                  </span>
+                )}
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => navigate("/cart")}>
+              <Button variant="ghost" size="icon" onClick={() => navigate("/cart")} className="relative">
                 <ShoppingCart className="h-5 w-5" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
               </Button>
               <Button variant="ghost" size="icon" onClick={() => navigate("/orders")}>
                 <Package className="h-5 w-5" />
