@@ -10,6 +10,7 @@ import { ArrowLeft, User as UserIcon, Save, LogOut, MapPin, Navigation } from "l
 import { User } from "@supabase/supabase-js";
 import { LocationPicker } from "@/components/LocationPicker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import MyReviews from "@/components/feedback/MyReviews";
 
 interface Profile {
   full_name: string;
@@ -408,6 +409,8 @@ const Account = () => {
               </Dialog>
             </CardContent>
           </Card>
+
+          {userRole === "customer" && <MyReviews />}
 
           <Card>
             <CardHeader>
