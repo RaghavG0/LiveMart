@@ -15,6 +15,8 @@ import { LocationStatusBanner } from "@/components/LocationStatusBanner";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import NotificationBell from "@/components/NotificationBell";
 import PendingInventoryOrders from "@/components/PendingInventoryOrders";
+import RetailerFeedbackOverview from "@/components/dashboard/RetailerFeedbackOverview";
+import OrderStatusManager from "@/components/dashboard/OrderStatusManager";
 
 interface RetailerDashboardProps {
   user: User;
@@ -109,7 +111,7 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
         </div>
 
         <Tabs defaultValue="products" className="space-y-6">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="products">
               <Package className="h-4 w-4 mr-2" />
               My Products
@@ -120,7 +122,11 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
             </TabsTrigger>
             <TabsTrigger value="orders">
               <BarChart3 className="h-4 w-4 mr-2" />
-              Orders
+              Order Management
+            </TabsTrigger>
+            <TabsTrigger value="feedback">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Customer Feedback
             </TabsTrigger>
           </TabsList>
 
@@ -141,11 +147,11 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
           </TabsContent>
 
           <TabsContent value="orders" className="space-y-4">
-            <h3 className="text-xl font-semibold">Recent Orders</h3>
-            <div className="text-center py-12 text-muted-foreground">
-              <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No orders yet. They'll appear here once customers start ordering!</p>
-            </div>
+            <OrderStatusManager sellerId={user.id} orderType="customer" />
+          </TabsContent>
+
+          <TabsContent value="feedback" className="space-y-4">
+            <RetailerFeedbackOverview retailerId={user.id} />
           </TabsContent>
         </Tabs>
       </main>
