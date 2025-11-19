@@ -12,6 +12,11 @@ import Account from "./pages/Account";
 import Orders from "./pages/Orders";
 import ProductDetail from "./pages/ProductDetail";
 import NotFound from "./pages/NotFound";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentFailure from "./pages/PaymentFailure";
+import OrderTracking from "./pages/OrderTracking";
+import OfflineBooking from "./pages/OfflineBooking";
+import SellerOrderManagement from "./pages/SellerOrderManagement";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +35,11 @@ const App = () => (
           <Route path="/account" element={<Account />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/product/:id" element={<ProductDetail />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/payment-failure" element={<PaymentFailure />} />
+          <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
+          <Route path="/offline-booking" element={<OfflineBooking />} />
+          <Route path="/seller-orders" element={<SellerOrderManagement />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

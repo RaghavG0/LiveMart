@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Package, TrendingUp, CheckCircle, User as UserIcon } from "lucide-react";
+import { LogOut, Plus, Package, TrendingUp, CheckCircle, User as UserIcon, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useSellerLocation } from "@/hooks/useSellerLocation";
 import { LocationStatusBanner } from "@/components/LocationStatusBanner";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import NotificationBell from "@/components/NotificationBell";
 
 interface WholesalerDashboardProps {
   user: User;
@@ -165,6 +166,10 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
               Live MART - Wholesaler Portal
             </h1>
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/seller-orders")} title="Manage Orders">
+                <ShoppingBag className="h-5 w-5" />
+              </Button>
+              <NotificationBell />
               <Button variant="ghost" size="icon" onClick={() => navigate("/account")} title="Account Settings">
                 <UserIcon className="h-5 w-5" />
               </Button>
