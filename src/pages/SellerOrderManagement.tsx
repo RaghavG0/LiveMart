@@ -197,6 +197,16 @@ const SellerOrderManagement = () => {
                 Mark as Shipped
               </Button>
             )}
+            {order.status === "shipped" && (
+              <Button
+                size="sm"
+                onClick={() => updateOrderStatus(order.id, "delivered")}
+                className="gap-1"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Mark as Delivered
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>
