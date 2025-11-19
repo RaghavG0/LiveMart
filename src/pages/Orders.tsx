@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { ArrowLeft, Package } from "lucide-react";
+import { ArrowLeft, Package, Star } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import OrderStatusBadge from "@/components/OrderStatusBadge";
 import {
@@ -20,10 +20,12 @@ interface OrderItem {
   id: string;
   quantity: number;
   price_at_purchase: number;
+  product_id: string;
   product: {
     name: string;
     image_url: string | null;
   } | null;
+  hasReview?: boolean;
 }
 
 interface Order {
@@ -91,6 +93,7 @@ const Orders = () => {
             id,
             quantity,
             price_at_purchase,
+            product_id,
             product:products (
               name,
               image_url
@@ -101,7 +104,38 @@ const Orders = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setOrders(data as unknown as Order[]);
+
+      // Check which products have reviews
+      const ordersWithReviewStatus = await Promise.all(
+        (data || []).map(async (order: any) => {
+          const itemsWithReviewStatus = await Promise.all(
+            order.order_items.map(async (item: any) => {
+              if (order.status === "delivered") {
+                const { data: review } = await supabase
+                  .from("reviews")
+                  .select("id")
+                  .eq("user_id", userId)
+                  .eq("product_id", item.product_id)
+                  .eq("order_id", order.id)
+                  .maybeSingle();
+                
+                return {
+                  ...item,
+                  hasReview: !!review,
+                };
+              }
+              return item;
+            })
+          );
+          
+          return {
+            ...order,
+            order_items: itemsWithReviewStatus,
+          };
+        })
+      );
+
+      setOrders(ordersWithReviewStatus as unknown as Order[]);
     } catch (error: any) {
       console.error("Error fetching orders:", error);
       toast.error("Failed to load orders");
@@ -215,6 +249,26 @@ const Orders = () => {
                                     <p className="text-sm text-muted-foreground">
                                       Quantity: {item.quantity} × ₹{item.price_at_purchase.toFixed(2)}
                                     </p>
+                                    {order.status === "delivered" && (
+                                      <div className="mt-2">
+                                        {item.hasReview ? (
+                                          <Badge variant="outline" className="text-xs">
+                                            <Star className="h-3 w-3 mr-1 fill-yellow-400 text-yellow-400" />
+                                            Review submitted
+                                          </Badge>
+                                        ) : (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => navigate(`/product/${item.product_id}`)}
+                                            className="text-xs h-7"
+                                          >
+                                            <Star className="h-3 w-3 mr-1" />
+                                            Leave Review
+                                          </Button>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                   <p className="font-semibold">
                                     ₹{(item.quantity * item.price_at_purchase).toFixed(2)}

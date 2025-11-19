@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ShoppingCart, Heart, ArrowLeft } from "lucide-react";
+import FeedbackList from "@/components/feedback/FeedbackList";
+import FeedbackForm from "@/components/feedback/FeedbackForm";
 
 interface Product {
   id: string;
@@ -19,6 +21,15 @@ interface Product {
   seller_address?: string;
 }
 
+interface DeliveredOrder {
+  orderId: string;
+  hasReview: boolean;
+  existingReview?: {
+    rating: number;
+    comment: string | null;
+  };
+}
+
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -26,12 +37,62 @@ const ProductDetail = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deliveredOrder, setDeliveredOrder] = useState<DeliveredOrder | null>(null);
+  const [refreshFeedback, setRefreshFeedback] = useState(0);
 
   useEffect(() => {
     if (id) {
       fetchProductDetails();
+      checkDeliveredOrder();
     }
   }, [id]);
+
+  const checkDeliveredOrder = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Check if user has a delivered order containing this product
+      const { data: orders, error } = await supabase
+        .from("orders")
+        .select(`
+          id,
+          status,
+          order_items!inner(
+            product_id
+          ),
+          reviews(
+            rating,
+            comment
+          )
+        `)
+        .eq("customer_id", session.user.id)
+        .eq("status", "delivered")
+        .eq("order_items.product_id", id);
+
+      if (error) throw error;
+
+      if (orders && orders.length > 0) {
+        const order = orders[0];
+        // Check if review already exists for this product
+        const { data: existingReview } = await supabase
+          .from("reviews")
+          .select("rating, comment")
+          .eq("user_id", session.user.id)
+          .eq("product_id", id)
+          .eq("order_id", order.id)
+          .maybeSingle();
+
+        setDeliveredOrder({
+          orderId: order.id,
+          hasReview: !!existingReview,
+          existingReview: existingReview || undefined,
+        });
+      }
+    } catch (error) {
+      console.error("Error checking delivered order:", error);
+    }
+  };
 
   const fetchProductDetails = async () => {
     try {
@@ -282,6 +343,24 @@ const ProductDetail = () => {
               </Button>
             </div>
           </div>
+        </div>
+
+        {/* Feedback Section */}
+        <div className="mb-12 space-y-8">
+          {deliveredOrder && (
+            <FeedbackForm
+              productId={product.id}
+              productName={product.name}
+              orderId={deliveredOrder.orderId}
+              existingReview={deliveredOrder.existingReview}
+              onSuccess={() => {
+                setRefreshFeedback((prev) => prev + 1);
+                checkDeliveredOrder();
+              }}
+            />
+          )}
+          
+          <FeedbackList key={refreshFeedback} productId={product.id} />
         </div>
 
         {similarProducts.length > 0 && (
