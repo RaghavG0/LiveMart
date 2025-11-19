@@ -4,14 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import FeedbackRating from "@/components/feedback/FeedbackRating";
-import { ChevronDown, ChevronUp, MessageSquare, Star, TrendingUp } from "lucide-react";
+import ProductReviewsModal from "./ProductReviewsModal";
+import FeedbackAnalytics from "./FeedbackAnalytics";
+import { Eye, MessageSquare, Star, TrendingUp, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   Select,
   SelectContent,
@@ -26,7 +24,7 @@ interface ProductFeedback {
   productImage: string | null;
   averageRating: number;
   totalReviews: number;
-  recentReviews: Review[];
+  allReviews: Review[];
 }
 
 interface Review {
@@ -35,7 +33,14 @@ interface Review {
   comment: string | null;
   customerName: string;
   createdAt: string;
+  editedAt: string | null;
   isEdited: boolean;
+  reply?: {
+    id: string;
+    replyText: string;
+    createdAt: string;
+    editedAt: string | null;
+  };
 }
 
 interface RetailerFeedbackOverviewProps {
@@ -50,7 +55,7 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
     averageRating: 0,
     ratingDistribution: {} as Record<string, number>,
   });
-  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
+  const [selectedProduct, setSelectedProduct] = useState<ProductFeedback | null>(null);
   const [sortBy, setSortBy] = useState<"rating" | "reviews">("reviews");
 
   useEffect(() => {
@@ -61,7 +66,7 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
     try {
       setLoading(true);
 
-      // Fetch retailer's products with reviews
+      // Fetch retailer's products with reviews and replies
       const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select(`
@@ -74,7 +79,13 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
             comment,
             created_at,
             edited_at,
-            profiles!inner(full_name)
+            profiles!inner(full_name),
+            review_replies (
+              id,
+              reply_text,
+              created_at,
+              edited_at
+            )
           )
         `)
         .eq("seller_id", retailerId)
@@ -97,16 +108,22 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
             productImage: product.image_url,
             averageRating: Math.round(averageRating * 10) / 10,
             totalReviews,
-            recentReviews: reviews
+            allReviews: reviews
               .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-              .slice(0, 5)
               .map((review: any) => ({
                 id: review.id,
                 rating: review.rating,
                 comment: review.comment,
                 customerName: review.profiles?.full_name || "Anonymous",
                 createdAt: review.created_at,
+                editedAt: review.edited_at,
                 isEdited: !!review.edited_at,
+                reply: review.review_replies && review.review_replies.length > 0 ? {
+                  id: review.review_replies[0].id,
+                  replyText: review.review_replies[0].reply_text,
+                  createdAt: review.review_replies[0].created_at,
+                  editedAt: review.review_replies[0].edited_at,
+                } : undefined,
               })),
           };
         })
@@ -142,18 +159,6 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
     }
   };
 
-  const toggleProduct = (productId: string) => {
-    setExpandedProducts((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(productId)) {
-        newSet.delete(productId);
-      } else {
-        newSet.add(productId);
-      }
-      return newSet;
-    });
-  };
-
   const sortedProducts = [...products].sort((a, b) => {
     if (sortBy === "rating") {
       return b.averageRating - a.averageRating;
@@ -161,12 +166,16 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
     return b.totalReviews - a.totalReviews;
   });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-IN", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+  const handleViewReviews = (product: ProductFeedback) => {
+    setSelectedProduct(product);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedProduct(null);
+  };
+
+  const handleReplyAdded = () => {
+    fetchFeedbackData(); // Refresh data
   };
 
   if (loading) {
@@ -186,6 +195,9 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
 
   return (
     <div className="space-y-6">
+      {/* Analytics Section */}
+      <FeedbackAnalytics retailerId={retailerId} />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -222,19 +234,19 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
                 <p className="text-sm text-muted-foreground">Products Reviewed</p>
                 <p className="text-2xl font-bold mt-1">{products.length}</p>
               </div>
-              <TrendingUp className="h-8 w-8 text-green-600" />
+              <Package className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Products Feedback */}
+      {/* Products Feedback Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Product Reviews</CardTitle>
-              <CardDescription>Customer feedback on your products</CardDescription>
+              <CardDescription>Manage customer feedback and respond to reviews</CardDescription>
             </div>
             <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
               <SelectTrigger className="w-40">
@@ -249,89 +261,79 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
         </CardHeader>
         <CardContent>
           {products.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-              <p className="text-muted-foreground">No reviews yet</p>
+            <div className="text-center py-12">
+              <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-lg font-medium">No reviews yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Customer reviews will appear here once you receive them
+              </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {sortedProducts.map((product) => (
-                <Collapsible
+                <div
                   key={product.productId}
-                  open={expandedProducts.has(product.productId)}
-                  onOpenChange={() => toggleProduct(product.productId)}
+                  className="border rounded-lg p-4 hover:bg-muted/30 transition-colors"
                 >
-                  <div className="border rounded-lg">
-                    <CollapsibleTrigger className="w-full p-4 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        {product.productImage && (
-                          <img
-                            src={product.productImage}
-                            alt={product.productName}
-                            className="w-12 h-12 rounded object-cover"
-                          />
-                        )}
-                        <div className="flex-1 text-left">
-                          <h4 className="font-semibold">{product.productName}</h4>
-                          <div className="flex items-center gap-3 mt-1">
-                            <FeedbackRating rating={product.averageRating} size="sm" showValue />
-                            <Separator orientation="vertical" className="h-4" />
-                            <span className="text-sm text-muted-foreground">
-                              {product.totalReviews} {product.totalReviews === 1 ? "review" : "reviews"}
-                            </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                      {product.productImage && (
+                        <img
+                          src={product.productImage}
+                          alt={product.productName}
+                          className="w-16 h-16 rounded object-cover"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-base">{product.productName}</h4>
+                        <div className="flex items-center gap-4 mt-2">
+                          <FeedbackRating rating={product.averageRating} size="sm" showValue />
+                          <Separator orientation="vertical" className="h-4" />
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <MessageSquare className="h-4 w-4" />
+                            <span>{product.totalReviews} reviews</span>
                           </div>
+                          {product.allReviews.some(r => !r.reply) && (
+                            <Badge variant="secondary">
+                              {product.allReviews.filter(r => !r.reply).length} unanswered
+                            </Badge>
+                          )}
                         </div>
-                        {expandedProducts.has(product.productId) ? (
-                          <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                        )}
                       </div>
-                    </CollapsibleTrigger>
-
-                    <CollapsibleContent>
-                      <Separator />
-                      <div className="p-4 space-y-4">
-                        {product.recentReviews.map((review, index) => (
-                          <div key={review.id}>
-                            {index > 0 && <Separator className="my-4" />}
-                            <div className="space-y-2">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <p className="font-medium text-sm">{review.customerName}</p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <FeedbackRating rating={review.rating} size="sm" />
-                                    <span className="text-xs text-muted-foreground">
-                                      {formatDate(review.createdAt)}
-                                    </span>
-                                    {review.isEdited && (
-                                      <Badge variant="outline" className="text-xs">
-                                        Edited
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              {review.comment && (
-                                <p className="text-sm text-foreground">{review.comment}</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                        {product.totalReviews > 5 && (
-                          <Button variant="outline" size="sm" className="w-full mt-4">
-                            View All {product.totalReviews} Reviews
-                          </Button>
-                        )}
-                      </div>
-                    </CollapsibleContent>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewReviews(product)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View & Reply
+                    </Button>
                   </div>
-                </Collapsible>
+                </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Reviews Modal */}
+      <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Product Reviews</DialogTitle>
+          </DialogHeader>
+          {selectedProduct && (
+            <ProductReviewsModal
+              productId={selectedProduct.productId}
+              productName={selectedProduct.productName}
+              reviews={selectedProduct.allReviews}
+              onClose={handleCloseModal}
+              onReplyAdded={handleReplyAdded}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
