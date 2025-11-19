@@ -70,6 +70,44 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_confirmation_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          order_id: string
+          token: string
+          used: boolean
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          order_id: string
+          token: string
+          used?: boolean
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          order_id?: string
+          token?: string
+          used?: boolean
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_confirmation_tokens_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string | null
@@ -108,6 +146,47 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_status_history: {
+        Row: {
+          changed_by: string | null
+          changed_by_role: Database["public"]["Enums"]["app_role"] | null
+          created_at: string
+          id: string
+          new_status: Database["public"]["Enums"]["order_status"]
+          notes: string | null
+          old_status: Database["public"]["Enums"]["order_status"] | null
+          order_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_role?: Database["public"]["Enums"]["app_role"] | null
+          created_at?: string
+          id?: string
+          new_status: Database["public"]["Enums"]["order_status"]
+          notes?: string | null
+          old_status?: Database["public"]["Enums"]["order_status"] | null
+          order_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_role?: Database["public"]["Enums"]["app_role"] | null
+          created_at?: string
+          id?: string
+          new_status?: Database["public"]["Enums"]["order_status"]
+          notes?: string | null
+          old_status?: Database["public"]["Enums"]["order_status"] | null
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -259,7 +338,9 @@ export type Database = {
         Row: {
           comment: string | null
           created_at: string | null
+          edited_at: string | null
           id: string
+          order_id: string | null
           product_id: string
           rating: number
           user_id: string
@@ -267,7 +348,9 @@ export type Database = {
         Insert: {
           comment?: string | null
           created_at?: string | null
+          edited_at?: string | null
           id?: string
+          order_id?: string | null
           product_id: string
           rating: number
           user_id: string
@@ -275,12 +358,21 @@ export type Database = {
         Update: {
           comment?: string | null
           created_at?: string | null
+          edited_at?: string | null
           id?: string
+          order_id?: string | null
           product_id?: string
           rating?: number
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reviews_product_id_fkey"
             columns: ["product_id"]
@@ -353,6 +445,13 @@ export type Database = {
         Args: { lat1: number; lat2: number; lon1: number; lon2: number }
         Returns: number
       }
+      get_product_rating: {
+        Args: { product_uuid: string }
+        Returns: {
+          average_rating: number
+          total_reviews: number
+        }[]
+      }
       get_products_with_distance: {
         Args: {
           in_stock_only?: boolean
@@ -380,6 +479,14 @@ export type Database = {
           seller_name: string
           stock_quantity: number
           updated_at: string
+        }[]
+      }
+      get_retailer_feedback_summary: {
+        Args: { retailer_uuid: string }
+        Returns: {
+          average_rating: number
+          rating_distribution: Json
+          total_reviews: number
         }[]
       }
       has_role: {
