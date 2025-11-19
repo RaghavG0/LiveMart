@@ -1,77 +1,20 @@
-import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Phone, MessageSquare, MapPin } from "lucide-react";
+import { ArrowLeft, Phone, MessageSquare, MapPin, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import OrderTimeline from "@/components/OrderTimeline";
 import OrderStatusBadge from "@/components/OrderStatusBadge";
-
-interface Order {
-  id: string;
-  status: string;
-  delivery_address: string;
-  total_amount: number;
-  created_at: string;
-  estimated_delivery?: string;
-  delivery_lat?: number;
-  delivery_lng?: number;
-}
+import { useRealtimeOrder } from "@/hooks/useRealtimeOrder";
 
 const OrderTracking = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchOrder();
-    
-    // Real-time subscription for order updates
-    const channel = supabase
-      .channel(`order-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `id=eq.${orderId}`
-        },
-        (payload) => {
-          console.log('Order updated:', payload);
-          setOrder(payload.new as Order);
-          toast.success("Order status updated!");
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [orderId]);
-
-  const fetchOrder = async () => {
-    if (!orderId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("id", orderId)
-        .single();
-
-      if (error) throw error;
-      setOrder(data);
-    } catch (error) {
-      console.error("Error fetching order:", error);
-      toast.error("Failed to load order details");
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+  const { order, loading, isConnected } = useRealtimeOrder(orderId, {
+    showNotifications: true,
+  });
 
   if (loading) {
     return (
@@ -116,8 +59,23 @@ const OrderTracking = () => {
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-2xl">Track Order</CardTitle>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-2xl">Track Order</CardTitle>
+                  <Badge variant={isConnected ? "default" : "secondary"} className="gap-1">
+                    {isConnected ? (
+                      <>
+                        <Wifi className="w-3 h-3" />
+                        Live
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="w-3 h-3" />
+                        Offline
+                      </>
+                    )}
+                  </Badge>
+                </div>
                 <p className="text-sm text-muted-foreground mt-1">
                   Order ID: {order.id}
                 </p>
