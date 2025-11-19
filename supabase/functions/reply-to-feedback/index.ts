@@ -253,12 +253,12 @@ serve(async (req: Request) => {
     } else {
       throw new Error("Method not allowed");
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Reply to feedback error:", error);
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || "Internal server error",
+        error: error?.message || "Internal server error",
       }),
       {
         status: 500,
