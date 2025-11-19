@@ -17,6 +17,8 @@ import { useSellerLocation } from "@/hooks/useSellerLocation";
 import { LocationStatusBanner } from "@/components/LocationStatusBanner";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import NotificationBell from "@/components/NotificationBell";
+import WholesalerFeedbackView from "@/components/dashboard/WholesalerFeedbackView";
+import OrderStatusManager from "@/components/dashboard/OrderStatusManager";
 
 interface WholesalerDashboardProps {
   user: User;
@@ -191,14 +193,22 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
         <LocationStatusBanner show={hasLocation === false && !locationLoading} />
 
         <Tabs defaultValue="inventory" className="space-y-6">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="inventory">
               <Package className="h-4 w-4 mr-2" />
               Inventory
             </TabsTrigger>
+            <TabsTrigger value="orders">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Retailer Orders
+            </TabsTrigger>
+            <TabsTrigger value="feedback">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Product Performance
+            </TabsTrigger>
             <TabsTrigger value="retailers">
               <TrendingUp className="h-4 w-4 mr-2" />
-              Retailers
+              Transaction History
             </TabsTrigger>
           </TabsList>
 
@@ -208,6 +218,14 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
               onAdd={handleAddProduct}
               refreshTrigger={refreshTrigger}
             />
+          </TabsContent>
+
+          <TabsContent value="orders" className="space-y-4">
+            <OrderStatusManager sellerId={user.id} orderType="retailer" />
+          </TabsContent>
+
+          <TabsContent value="feedback" className="space-y-4">
+            <WholesalerFeedbackView wholesalerId={user.id} />
           </TabsContent>
 
           <TabsContent value="retailers" className="space-y-4">
