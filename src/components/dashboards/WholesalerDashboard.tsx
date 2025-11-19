@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Package, TrendingUp, CheckCircle, User as UserIcon, ShoppingBag } from "lucide-react";
+import { LogOut, Plus, Package, TrendingUp, CheckCircle, User as UserIcon, ShoppingBag, AlertTriangle, Users, Download, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +19,19 @@ import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFoo
 import NotificationBell from "@/components/NotificationBell";
 import WholesalerFeedbackView from "@/components/dashboard/WholesalerFeedbackView";
 import OrderStatusManager from "@/components/dashboard/OrderStatusManager";
+import AggregatedSKUFeedback from "@/components/dashboard/AggregatedSKUFeedback";
+import ProblemSKUAlerts from "@/components/dashboard/ProblemSKUAlerts";
+import RetailerInsights from "@/components/dashboard/RetailerInsights";
+import WholesalerOrderFlow from "@/components/dashboard/WholesalerOrderFlow";
+import { exportSKUPerformance, exportComplaintLogs, exportCompleteReport } from "@/lib/exportUtils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface WholesalerDashboardProps {
   user: User;
@@ -193,24 +206,61 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
         <LocationStatusBanner show={hasLocation === false && !locationLoading} />
 
         <Tabs defaultValue="inventory" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="inventory">
-              <Package className="h-4 w-4 mr-2" />
-              Inventory
-            </TabsTrigger>
-            <TabsTrigger value="orders">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Retailer Orders
-            </TabsTrigger>
-            <TabsTrigger value="feedback">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Product Performance
-            </TabsTrigger>
-            <TabsTrigger value="retailers">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Transaction History
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between mb-4">
+            <TabsList className="grid w-full max-w-4xl grid-cols-7">
+              <TabsTrigger value="inventory">
+                <Package className="h-4 w-4 mr-2" />
+                Inventory
+              </TabsTrigger>
+              <TabsTrigger value="analytics">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Analytics
+              </TabsTrigger>
+              <TabsTrigger value="alerts">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Alerts
+              </TabsTrigger>
+              <TabsTrigger value="insights">
+                <Users className="h-4 w-4 mr-2" />
+                Insights
+              </TabsTrigger>
+              <TabsTrigger value="orders">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Order Flow
+              </TabsTrigger>
+              <TabsTrigger value="feedback">
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Legacy View
+              </TabsTrigger>
+              <TabsTrigger value="retailers">
+                <ShoppingBag className="h-4 w-4 mr-2" />
+                History
+              </TabsTrigger>
+            </TabsList>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Reports
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Export Data</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => exportSKUPerformance(user.id)}>
+                  SKU Performance
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportComplaintLogs(user.id)}>
+                  Complaint Logs
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => exportCompleteReport(user.id)}>
+                  Complete Report (All Data)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
           <TabsContent value="inventory" className="space-y-4">
             <ProductList
@@ -220,8 +270,20 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
             />
           </TabsContent>
 
+          <TabsContent value="analytics" className="space-y-4">
+            <AggregatedSKUFeedback wholesalerId={user.id} />
+          </TabsContent>
+
+          <TabsContent value="alerts" className="space-y-4">
+            <ProblemSKUAlerts wholesalerId={user.id} />
+          </TabsContent>
+
+          <TabsContent value="insights" className="space-y-4">
+            <RetailerInsights wholesalerId={user.id} />
+          </TabsContent>
+
           <TabsContent value="orders" className="space-y-4">
-            <OrderStatusManager sellerId={user.id} orderType="retailer" />
+            <WholesalerOrderFlow wholesalerId={user.id} />
           </TabsContent>
 
           <TabsContent value="feedback" className="space-y-4">
