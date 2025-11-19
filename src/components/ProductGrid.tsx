@@ -71,6 +71,13 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
         if (sellerId) {
           sortedData = sortedData.filter(p => p.seller_id === sellerId);
         }
+
+        // Move out-of-stock items to bottom
+        sortedData = [...sortedData].sort((a, b) => {
+          if (a.stock_quantity === 0 && b.stock_quantity > 0) return 1;
+          if (a.stock_quantity > 0 && b.stock_quantity === 0) return -1;
+          return 0;
+        });
         
         setProducts(sortedData);
       } else {
@@ -110,7 +117,15 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
         const { data, error } = await query;
 
         if (error) throw error;
-        setProducts(data || []);
+        
+        // Move out-of-stock items to bottom
+        const sortedData = (data || []).sort((a, b) => {
+          if (a.stock_quantity === 0 && b.stock_quantity > 0) return 1;
+          if (a.stock_quantity > 0 && b.stock_quantity === 0) return -1;
+          return 0;
+        });
+        
+        setProducts(sortedData);
       }
     } catch (error) {
       console.error("Error fetching products:", error);
