@@ -14,6 +14,7 @@ import { useSellerLocation } from "@/hooks/useSellerLocation";
 import { LocationStatusBanner } from "@/components/LocationStatusBanner";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import NotificationBell from "@/components/NotificationBell";
+import PendingInventoryOrders from "@/components/PendingInventoryOrders";
 
 interface RetailerDashboardProps {
   user: User;
@@ -98,6 +99,14 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
         </div>
 
         <LocationStatusBanner show={hasLocation === false && !locationLoading} />
+
+        {/* Pending Inventory Orders */}
+        <div className="mb-6">
+          <PendingInventoryOrders 
+            userId={user.id} 
+            onInventoryAdded={() => setRefreshTrigger((prev) => prev + 1)}
+          />
+        </div>
 
         <Tabs defaultValue="products" className="space-y-6">
           <TabsList>

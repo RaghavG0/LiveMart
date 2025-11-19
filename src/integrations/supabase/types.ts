@@ -120,6 +120,7 @@ export type Database = {
           delivery_lat: number | null
           delivery_lng: number | null
           id: string
+          inventory_added: boolean | null
           notes: string | null
           order_type: Database["public"]["Enums"]["order_type"]
           payment_method: string | null
@@ -136,6 +137,7 @@ export type Database = {
           delivery_lat?: number | null
           delivery_lng?: number | null
           id?: string
+          inventory_added?: boolean | null
           notes?: string | null
           order_type?: Database["public"]["Enums"]["order_type"]
           payment_method?: string | null
@@ -152,6 +154,7 @@ export type Database = {
           delivery_lat?: number | null
           delivery_lng?: number | null
           id?: string
+          inventory_added?: boolean | null
           notes?: string | null
           order_type?: Database["public"]["Enums"]["order_type"]
           payment_method?: string | null
@@ -342,6 +345,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_retailer_order_to_inventory: {
+        Args: { _order_id: string; _retailer_id: string }
+        Returns: undefined
+      }
       calculate_distance: {
         Args: { lat1: number; lat2: number; lon1: number; lon2: number }
         Returns: number
