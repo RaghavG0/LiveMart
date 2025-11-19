@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { ArrowLeft, Package, Star } from "lucide-react";
+import { ArrowLeft, Package, Star, Wifi, WifiOff } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import OrderStatusBadge from "@/components/OrderStatusBadge";
 import {
@@ -15,13 +15,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useRealtimeOrders } from "@/hooks/useRealtimeOrders";
 
 interface OrderItem {
   id: string;
   quantity: number;
   price_at_purchase: number;
-  product_id: string;
   product: {
+    id: string;
     name: string;
     image_url: string | null;
   } | null;
@@ -42,8 +43,7 @@ interface Order {
 const Orders = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [ordersWithReviews, setOrdersWithReviews] = useState<any[]>([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -51,71 +51,32 @@ const Orders = () => {
         navigate("/auth");
       } else {
         setUser(session.user);
-        fetchOrders(session.user.id);
       }
     });
-
-    // Real-time subscription for order updates
-    const channel = supabase
-      .channel('customer-orders')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        () => {
-          // Refetch orders when any order is updated
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-              fetchOrders(session.user.id);
-            }
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [navigate]);
 
-  const fetchOrders = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(`
-          id,
-          created_at,
-          total_amount,
-          status,
-          delivery_address,
-          notes,
-          payment_method,
-          order_items (
-            id,
-            quantity,
-            price_at_purchase,
-            product_id,
-            product:products (
-              name,
-              image_url
-            )
-          )
-        `)
-        .eq("customer_id", userId)
-        .order("created_at", { ascending: false });
+  const { orders, loading, isConnected } = useRealtimeOrders(user?.id, {
+    showNotifications: true,
+  });
 
-      if (error) throw error;
+  // Check for reviews when orders change
+  useEffect(() => {
+    const checkReviews = async () => {
+      if (!user || orders.length === 0) {
+        setOrdersWithReviews(orders);
+        return;
+      }
 
-      // Check which products have reviews
       const ordersWithReviewStatus = await Promise.all(
-        (data || []).map(async (order: any) => {
+        orders.map(async (order: any) => {
           const itemsWithReviewStatus = await Promise.all(
             order.order_items.map(async (item: any) => {
-              if (order.status === "delivered") {
+              if (order.status === "delivered" && item.product?.id) {
                 const { data: review } = await supabase
                   .from("reviews")
                   .select("id")
-                  .eq("user_id", userId)
-                  .eq("product_id", item.product_id)
+                  .eq("user_id", user.id)
+                  .eq("product_id", item.product.id)
                   .eq("order_id", order.id)
                   .maybeSingle();
                 
@@ -135,14 +96,11 @@ const Orders = () => {
         })
       );
 
-      setOrders(ordersWithReviewStatus as unknown as Order[]);
-    } catch (error: any) {
-      console.error("Error fetching orders:", error);
-      toast.error("Failed to load orders");
-    } finally {
-      setLoading(false);
-    }
-  };
+      setOrdersWithReviews(ordersWithReviewStatus);
+    };
+
+    checkReviews();
+  }, [user, orders]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-IN", {
@@ -251,7 +209,7 @@ const Orders = () => {
                                     </p>
                                     {order.status === "delivered" && (
                                       <div className="mt-2">
-                                        {item.hasReview ? (
+                                        {(item as any).hasReview ? (
                                           <Badge variant="outline" className="text-xs">
                                             <Star className="h-3 w-3 mr-1 fill-yellow-400 text-yellow-400" />
                                             Review submitted
@@ -260,7 +218,7 @@ const Orders = () => {
                                           <Button
                                             size="sm"
                                             variant="outline"
-                                            onClick={() => navigate(`/product/${item.product_id}`)}
+                                            onClick={() => navigate(`/product/${item.product?.id}`)}
                                             className="text-xs h-7"
                                           >
                                             <Star className="h-3 w-3 mr-1" />
