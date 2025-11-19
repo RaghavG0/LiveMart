@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package } from "lucide-react";
+import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import ProductGrid from "@/components/ProductGrid";
@@ -11,6 +11,7 @@ import FilterPanel, { FilterState } from "@/components/FilterPanel";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { LocationPermission } from "@/components/LocationPermission";
 import MapView from "@/components/MapView";
+import NotificationBell from "@/components/NotificationBell";
 
 interface CustomerDashboardProps {
   user: User;
@@ -91,6 +92,10 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
               <Button variant="ghost" size="icon" onClick={() => navigate("/orders")}>
                 <Package className="h-5 w-5" />
               </Button>
+              <Button variant="ghost" size="icon" onClick={() => navigate("/offline-booking")} title="Book Offline Order">
+                <Calendar className="h-5 w-5" />
+              </Button>
+              <NotificationBell />
               <Button variant="ghost" size="icon" onClick={() => navigate("/account")}>
                 <UserIcon className="h-5 w-5" />
               </Button>

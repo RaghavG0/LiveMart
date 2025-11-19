@@ -7,9 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, CreditCard, Smartphone, Building2, Wallet } from "lucide-react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ArrowLeft } from "lucide-react";
 import { User } from "@supabase/supabase-js";
+import PaymentMethodSelector from "@/components/PaymentMethodSelector";
 
 interface CartItem {
   id: string;
@@ -157,7 +157,15 @@ const Checkout = () => {
       if (clearError) throw clearError;
 
       toast.success("Order placed successfully!");
-      navigate("/");
+      
+      // Redirect based on payment method
+      if (paymentMethod === "cod") {
+        navigate(`/payment-success?orderId=${orderData.id}`);
+      } else {
+        // For card/UPI payments, would redirect to payment gateway
+        // For now, simulate immediate success
+        navigate(`/payment-success?orderId=${orderData.id}`);
+      }
     } catch (error: any) {
       toast.error("Failed to place order: " + error.message);
     } finally {
@@ -226,53 +234,10 @@ const Checkout = () => {
                 <CardTitle>Payment Method</CardTitle>
               </CardHeader>
               <CardContent>
-                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="upi" id="upi" />
-                      <Label htmlFor="upi" className="flex items-center gap-3 cursor-pointer flex-1">
-                        <Smartphone className="h-5 w-5 text-primary" />
-                        <div>
-                          <div className="font-medium">UPI Payment</div>
-                          <div className="text-sm text-muted-foreground">Pay via Google Pay, PhonePe, Paytm</div>
-                        </div>
-                      </Label>
-                    </div>
-
-                    <div className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="card" id="card" />
-                      <Label htmlFor="card" className="flex items-center gap-3 cursor-pointer flex-1">
-                        <CreditCard className="h-5 w-5 text-primary" />
-                        <div>
-                          <div className="font-medium">Credit/Debit Card</div>
-                          <div className="text-sm text-muted-foreground">Visa, Mastercard, Rupay</div>
-                        </div>
-                      </Label>
-                    </div>
-
-                    <div className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="netbanking" id="netbanking" />
-                      <Label htmlFor="netbanking" className="flex items-center gap-3 cursor-pointer flex-1">
-                        <Building2 className="h-5 w-5 text-primary" />
-                        <div>
-                          <div className="font-medium">Net Banking</div>
-                          <div className="text-sm text-muted-foreground">All major banks supported</div>
-                        </div>
-                      </Label>
-                    </div>
-
-                    <div className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="cod" id="cod" />
-                      <Label htmlFor="cod" className="flex items-center gap-3 cursor-pointer flex-1">
-                        <Wallet className="h-5 w-5 text-primary" />
-                        <div>
-                          <div className="font-medium">Cash on Delivery</div>
-                          <div className="text-sm text-muted-foreground">Pay when you receive</div>
-                        </div>
-                      </Label>
-                    </div>
-                  </div>
-                </RadioGroup>
+                <PaymentMethodSelector 
+                  value={paymentMethod} 
+                  onChange={setPaymentMethod} 
+                />
               </CardContent>
             </Card>
           </div>
