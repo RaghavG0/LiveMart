@@ -25,6 +25,7 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
   const [showLocationBanner, setShowLocationBanner] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("");
   const [filters, setFilters] = useState<FilterState>({
     priceRange: [0, 1000],
     minStock: 0,
@@ -36,7 +37,20 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
 
   useEffect(() => {
     fetchMaxPrice();
+    fetchUserProfile();
   }, []);
+
+  const fetchUserProfile = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+    
+    if (data?.full_name) {
+      setUserName(data.full_name);
+    }
+  };
 
   const fetchMaxPrice = async () => {
     const { data } = await supabase
@@ -111,7 +125,9 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold mb-2">Welcome back!</h2>
+            <h2 className="text-3xl font-bold mb-2">
+              Welcome back{userName && `, ${userName}`}!
+            </h2>
             <p className="text-muted-foreground">Discover amazing products from local retailers</p>
           </div>
           <div className="flex gap-2">
