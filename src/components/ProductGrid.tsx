@@ -42,8 +42,8 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
 
   const fetchProducts = async () => {
     try {
-      // Use location-based RPC if user location and distance filter are available
-      if (userLocation && (sortBy === "distance-asc" || maxDistance)) {
+      // Use location-based RPC if user location is available to show distances
+      if (userLocation) {
         const { data, error } = await supabase.rpc('get_products_with_distance', {
           user_lat: userLocation.lat,
           user_lng: userLocation.lng,
@@ -57,12 +57,19 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
 
         if (error) throw error;
         
-        // Apply client-side sorting if needed (RPC already sorts by distance)
+        // Apply client-side sorting
         let sortedData = data || [];
         if (sortBy === "price-asc") {
           sortedData = [...sortedData].sort((a, b) => a.price - b.price);
         } else if (sortBy === "price-desc") {
           sortedData = [...sortedData].sort((a, b) => b.price - a.price);
+        } else if (sortBy === "distance-asc") {
+          sortedData = [...sortedData].sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0));
+        }
+
+        // Apply seller filter client-side if needed
+        if (sellerId) {
+          sortedData = sortedData.filter(p => p.seller_id === sellerId);
         }
         
         setProducts(sortedData);
