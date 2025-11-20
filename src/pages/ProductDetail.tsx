@@ -347,6 +347,8 @@ const ProductDetail = () => {
 
         {/* Feedback Section */}
         <div className="mb-12 space-y-8">
+          <h2 className="text-2xl font-bold">Customer Reviews</h2>
+          
           {deliveredOrder && (
             <FeedbackForm
               productId={product.id}

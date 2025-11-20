@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar } from "lucide-react";
+import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import ProductGrid from "@/components/ProductGrid";
@@ -130,8 +130,11 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
                   </span>
                 )}
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => navigate("/orders")}>
+              <Button variant="ghost" size="icon" onClick={() => navigate("/orders")} title="My Orders">
                 <Package className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => navigate("/account")} title="My Reviews">
+                <MessageSquare className="h-5 w-5" />
               </Button>
               <Button variant="ghost" size="icon" onClick={() => navigate("/offline-booking")} title="Book Offline Order">
                 <Calendar className="h-5 w-5" />
