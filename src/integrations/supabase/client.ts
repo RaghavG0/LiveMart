@@ -2,16 +2,36 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Get Supabase credentials from environment variables
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://cdvhodymzfwdzfeltmsu.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkdmhvZHltemZ3ZHpmZWx0bXN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDAwMTksImV4cCI6MjA3ODk3NjAxOX0.asI9upCQ8JHJN87Wd8mB1tcatV0JEQhD7zHalWsD3-s";
+// Get Supabase credentials from environment variables with fallbacks
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 
+                     import.meta.env.VITE_SUPABASE_PROJECT_ID ? 
+                     `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co` : 
+                     "https://cdvhodymzfwdzfeltmsu.supabase.co";
+
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 
+                                 import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
+                                 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkdmhvZHltemZ3ZHpmZWx0bXN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDAwMTksImV4cCI6MjA3ODk3NjAxOX0.asI9upCQ8JHJN87Wd8mB1tcatV0JEQhD7zHalWsD3-s";
+
+// Debug logging (will be visible in browser console)
+console.log('[Supabase Client] Initializing with:', {
+  url: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'undefined',
+  hasKey: !!SUPABASE_PUBLISHABLE_KEY,
+  keyLength: SUPABASE_PUBLISHABLE_KEY?.length || 0,
+  envVars: {
+    hasVITE_SUPABASE_URL: !!import.meta.env.VITE_SUPABASE_URL,
+    hasVITE_SUPABASE_ANON_KEY: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+    hasVITE_SUPABASE_PUBLISHABLE_KEY: !!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  }
+});
 
 // Validate required environment variables
 if (!SUPABASE_URL) {
+  console.error('[Supabase Client] ERROR: Missing SUPABASE_URL');
   throw new Error('Missing VITE_SUPABASE_URL environment variable');
 }
 
 if (!SUPABASE_PUBLISHABLE_KEY) {
+  console.error('[Supabase Client] ERROR: Missing SUPABASE_PUBLISHABLE_KEY');
   throw new Error('Missing VITE_SUPABASE_ANON_KEY environment variable');
 }
 
@@ -25,3 +45,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+console.log('[Supabase Client] ✅ Successfully initialized');
