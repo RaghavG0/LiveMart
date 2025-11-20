@@ -293,7 +293,7 @@ ALTER TABLE deployment_stages ENABLE ROW LEVEL SECURITY;
 -- Admins manage feature flags
 CREATE POLICY "Admins manage feature flags"
   ON feature_flags FOR ALL TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
 
 -- Users can view their own overrides
 CREATE POLICY "Users view own overrides"

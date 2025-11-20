@@ -442,9 +442,9 @@ ALTER TABLE user_reputation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE suspicious_activity_log ENABLE ROW LEVEL SECURITY;
 
 -- Admins can manage all rate limit configs
-CREATE POLICY "Admins manage rate limits"
+CREATE POLICY "Admins manage rate limit configs"
   ON rate_limit_configs FOR ALL TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
 
 -- Users can view own violations
 CREATE POLICY "Users view own violations"
@@ -453,8 +453,8 @@ CREATE POLICY "Users view own violations"
 
 -- Admins view all violations
 CREATE POLICY "Admins view all violations"
-  ON rate_limit_violations FOR ALL TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  ON rate_limit_violations FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
 
 -- Users can view own CAPTCHA challenges
 CREATE POLICY "Users view own captcha"

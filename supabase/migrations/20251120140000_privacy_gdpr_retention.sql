@@ -491,7 +491,7 @@ CREATE POLICY "Users insert own consents"
 -- Admins manage retention configs
 CREATE POLICY "Admins manage retention configs"
   ON data_retention_configs FOR ALL TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
 
 -- Users can view own deletion requests
 CREATE POLICY "Users view own deletion requests"
@@ -506,7 +506,7 @@ CREATE POLICY "Users create deletion requests"
 -- Admins manage deletion requests
 CREATE POLICY "Admins manage deletion requests"
   ON user_deletion_requests FOR ALL TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
 
 -- Users can view their own audit logs
 CREATE POLICY "Users view own audit logs"
@@ -516,7 +516,7 @@ CREATE POLICY "Users view own audit logs"
 -- Admins view all audit logs
 CREATE POLICY "Admins view all audit logs"
   ON data_access_audit FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin'));
 
 -- Service role manages all
 CREATE POLICY "Service role manages audit"
@@ -526,7 +526,7 @@ CREATE POLICY "Service role manages audit"
 -- Admins can view anonymized data for analytics
 CREATE POLICY "Admins view anonymized data"
   ON anonymized_users FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'analyst')));
+  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'analyst')));
 
 -- Default retention policies
 INSERT INTO data_retention_configs(data_type, retention_days, policy, anonymize_fields, description)

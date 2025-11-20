@@ -406,8 +406,8 @@ CREATE POLICY "Admins full access to experiments"
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
+      SELECT 1 FROM user_roles
+      WHERE user_id = auth.uid() AND role = 'admin'
     )
   );
 
@@ -417,8 +417,8 @@ CREATE POLICY "Admins full access to variants"
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
+      SELECT 1 FROM user_roles
+      WHERE user_id = auth.uid() AND role = 'admin'
     )
   );
 
@@ -449,8 +449,8 @@ CREATE POLICY "Admins view experiment results"
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
+      SELECT 1 FROM user_roles
+      WHERE user_id = auth.uid() AND role = 'admin'
     )
   );
 
