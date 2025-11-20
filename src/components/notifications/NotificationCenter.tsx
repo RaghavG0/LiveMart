@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "../../integrations/supabase/client";
 import { NotificationItem } from "../../types/notifications";
-
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL as string,
-  process.env.REACT_APP_SUPABASE_ANON_KEY as string
-);
 
 export const NotificationCenter: React.FC = () => {
   const [items, setItems] = useState<NotificationItem[]>([]);
