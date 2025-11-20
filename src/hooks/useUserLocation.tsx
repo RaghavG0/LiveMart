@@ -50,8 +50,30 @@ export const useUserLocation = () => {
             setLoading(false);
           },
           (err) => {
-            setError(err.message);
+            console.error('Geolocation error:', err);
+            let errorMessage = 'Unable to get location. ';
+            
+            switch(err.code) {
+              case err.PERMISSION_DENIED:
+                errorMessage += 'Location permission denied.';
+                break;
+              case err.POSITION_UNAVAILABLE:
+                errorMessage += 'Location unavailable.';
+                break;
+              case err.TIMEOUT:
+                errorMessage += 'Location request timed out.';
+                break;
+              default:
+                errorMessage += err.message;
+            }
+            
+            setError(errorMessage);
             setLoading(false);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
           }
         );
       } else {
