@@ -86,22 +86,50 @@ const Account = () => {
     }
   };
 
-  const handleCaptureCurrentLocation = () => {
+  const handleCaptureCurrentLocation = async () => {
     if (!("geolocation" in navigator)) {
       toast.error("Geolocation is not supported by your browser");
       return;
     }
 
+    // Check if running on HTTPS or localhost
+    if (window.location.protocol !== 'https:' && !window.location.hostname.includes('localhost')) {
+      toast.error("Location access requires a secure connection (HTTPS)");
+      return;
+    }
+
+    // Check permission state if available
+    try {
+      if ('permissions' in navigator) {
+        const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        if (result.state === 'denied') {
+          toast.error("Location permission denied. Please enable it in your browser settings.");
+          return;
+        }
+      }
+    } catch (e) {
+      console.log('Permission check not supported:', e);
+    }
+
     setCapturingLocation(true);
+    toast.info("Requesting location access...");
+    
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
 
+        console.log('Location captured:', { lat, lng, accuracy: position.coords.accuracy });
+
         // Reverse geocode to get address
         try {
+          const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
+          if (!apiKey) {
+            throw new Error('Maps API key not configured');
+          }
+
           const response = await fetch(
-            `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${lng}&api_key=${import.meta.env.VITE_OLA_MAPS_API_KEY}`
+            `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${lng}&api_key=${apiKey}`
           );
           const data = await response.json();
           const address = data.results?.[0]?.formatted_address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -113,42 +141,51 @@ const Account = () => {
             location_address: address,
           });
 
-          toast.success("Location captured successfully");
+          toast.success(`Location captured: ${address}`);
         } catch (error) {
+          console.error('Reverse geocoding failed:', error);
           setProfile({
             ...profile,
             location_lat: lat,
             location_lng: lng,
             location_address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
           });
-          toast.success("Location captured");
+          toast.success("Location captured (coordinates only)");
         }
         setCapturingLocation(false);
       },
       (error) => {
         console.error("Geolocation error:", error);
         let errorMessage = "Unable to get your location. ";
+        let instruction = "";
         
         switch(error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage += "Please enable location permissions in your browser settings.";
+            errorMessage = "Location permission denied.";
+            instruction = "Click the 🔒 icon in your browser's address bar and enable location access.";
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage += "Location information is unavailable.";
+            errorMessage = "Location information is unavailable.";
+            instruction = "Make sure GPS/location services are enabled on your device.";
             break;
           case error.TIMEOUT:
-            errorMessage += "Location request timed out. Please try again.";
+            errorMessage = "Location request timed out.";
+            instruction = "Please try again or use 'Pick Location on Map' option.";
             break;
           default:
-            errorMessage += "An unknown error occurred.";
+            errorMessage = "An unknown error occurred.";
+            instruction = "Try using 'Pick Location on Map' option instead.";
         }
         
-        toast.error(errorMessage);
+        toast.error(errorMessage, {
+          description: instruction,
+          duration: 5000,
+        });
         setCapturingLocation(false);
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 15000,
         maximumAge: 0
       }
     );

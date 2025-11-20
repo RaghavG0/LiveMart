@@ -41,12 +41,21 @@ export const useUserLocation = () => {
 
       // Fallback to browser geolocation
       if ('geolocation' in navigator) {
+        // Check for HTTPS or localhost
+        if (window.location.protocol !== 'https:' && !window.location.hostname.includes('localhost')) {
+          setError('Location access requires HTTPS');
+          setLoading(false);
+          return;
+        }
+
         navigator.geolocation.getCurrentPosition(
           (position) => {
+            console.log('Location retrieved:', position.coords.latitude, position.coords.longitude);
             setLocation({
               lat: position.coords.latitude,
               lng: position.coords.longitude
             });
+            setError(null);
             setLoading(false);
           },
           (err) => {
@@ -55,13 +64,13 @@ export const useUserLocation = () => {
             
             switch(err.code) {
               case err.PERMISSION_DENIED:
-                errorMessage += 'Location permission denied.';
+                errorMessage += 'Permission denied. Enable location in browser settings.';
                 break;
               case err.POSITION_UNAVAILABLE:
-                errorMessage += 'Location unavailable.';
+                errorMessage += 'Location unavailable. Check device GPS settings.';
                 break;
               case err.TIMEOUT:
-                errorMessage += 'Location request timed out.';
+                errorMessage += 'Request timed out. Please try again.';
                 break;
               default:
                 errorMessage += err.message;
@@ -71,13 +80,13 @@ export const useUserLocation = () => {
             setLoading(false);
           },
           {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
+            enableHighAccuracy: false, // Changed to false for faster response
+            timeout: 15000, // Increased timeout
+            maximumAge: 300000 // Cache for 5 minutes
           }
         );
       } else {
-        setError('Geolocation not supported');
+        setError('Geolocation not supported by your browser');
         setLoading(false);
       }
     } catch (err) {

@@ -31,9 +31,16 @@ export const LocationPicker = ({
 
     const loadMap = async () => {
       try {
+        // Check if OlaMaps SDK is loaded
         // @ts-ignore - OlaMaps is loaded from CDN
-        const { OlaMaps } = await import("olamaps-web-sdk");
-        const olaMaps = new OlaMaps({ apiKey });
+        if (typeof window.OlaMaps === 'undefined') {
+          console.error('OlaMaps SDK not loaded. Make sure the script is included in index.html');
+          setLoading(false);
+          return;
+        }
+
+        // @ts-ignore
+        const olaMaps = new window.OlaMaps({ apiKey });
 
         const defaultLat = initialLat || 28.6139;
         const defaultLng = initialLng || 77.2090;
