@@ -1,22 +1,28 @@
 -- Add admin and moderator roles to app_role enum
 -- This migration must run before the A/B experiment and other admin-dependent migrations
+-- NOTE: ALTER TYPE ADD VALUE cannot run in a transaction with other enum-using statements
 
--- Add new enum values (checking if they don't already exist)
+-- Check and add 'admin' if it doesn't exist
 DO $$ 
 BEGIN
-    -- Add 'admin' if it doesn't exist
     IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'admin' AND enumtypid = 'app_role'::regtype) THEN
-        ALTER TYPE app_role ADD VALUE 'admin';
+        EXECUTE 'ALTER TYPE app_role ADD VALUE ''admin''';
     END IF;
-    
-    -- Add 'moderator' if it doesn't exist
+END $$;
+
+-- Check and add 'moderator' if it doesn't exist
+DO $$ 
+BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'moderator' AND enumtypid = 'app_role'::regtype) THEN
-        ALTER TYPE app_role ADD VALUE 'moderator';
+        EXECUTE 'ALTER TYPE app_role ADD VALUE ''moderator''';
     END IF;
-    
-    -- Add 'analyst' if it doesn't exist
+END $$;
+
+-- Check and add 'analyst' if it doesn't exist
+DO $$ 
+BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'analyst' AND enumtypid = 'app_role'::regtype) THEN
-        ALTER TYPE app_role ADD VALUE 'analyst';
+        EXECUTE 'ALTER TYPE app_role ADD VALUE ''analyst''';
     END IF;
 END $$;
 
