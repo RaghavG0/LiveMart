@@ -1,0 +1,62 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "success": "¡Éxito!",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "submit": "Enviar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "sort": "Ordenar",
+    "showMore": "Mostrar más",
+    "showLess": "Mostrar menos"
+  },
+  "review": {
+    "title": "Escribir una reseña",
+    "subtitle": "Comparte tu experiencia con otros",
+    "ratingLabel": "Califica tu experiencia",
+    "ratingRequired": "Por favor selecciona una calificación",
+    "ratingAria": "Selecciona calificación de 1 a 5 estrellas",
+    "commentLabel": "Tu reseña",
+    "commentPlaceholder": "Cuéntanos sobre tu experiencia...",
+    "commentRequired": "Por favor escribe una reseña",
+    "commentMinLength": "La reseña debe tener al menos 10 caracteres",
+    "commentMaxLength": "La reseña no puede exceder 5000 caracteres",
+    "imageUploadLabel": "Agregar fotos (opcional)",
+    "imageUploadHint": "Sube hasta 3 imágenes para mostrar tu experiencia",
+    "imageUploadAria": "Subir imágenes de reseña",
+    "submitButton": "Enviar reseña",
+    "submitSuccess": "¡Reseña enviada exitosamente!",
+    "submitError": "Error al enviar reseña. Por favor intenta de nuevo.",
+    "submitting": "Enviando tu reseña...",
+    "moderationNotice": "Tu reseña será publicada después de moderación",
+    "helpful": "¿Te resultó útil esta reseña?",
+    "markHelpful": "Sí, útil",
+    "markNotHelpful": "No, no útil",
+    "helpfulCount": "{count} encontraron esto útil",
+    "verifiedPurchase": "Compra verificada",
+    "reviewDate": "Reseñado el {date}"
+  },
+  "moderation": {
+    "title": "Moderación de reseñas",
+    "pending": "Reseñas pendientes",
+    "approved": "Aprobadas",
+    "rejected": "Rechazadas",
+    "flagged": "Marcadas",
+    "approve": "Aprobar",
+    "reject": "Rechazar"
+  },
+  "analytics": {
+    "title": "Panel de análisis",
+    "totalReviews": "Total de reseñas",
+    "averageRating": "Calificación promedio",
+    "downloadCSV": "Descargar CSV"
+  }
+}

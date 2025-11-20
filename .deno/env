@@ -1,0 +1,15 @@
+if [ -d "$HOME/.deno" ]; then
+  if [ -f "$HOME/.deno/env" ]; then
+    echo "~/.deno/env exists"
+  else
+    echo "Creating minimal ~/.deno/env"
+    cat > ~/.deno/env <<'ENV'
+# minimal deno env
+export DENO_INSTALL="$HOME/.deno"
+export PATH="$DENO_INSTALL/bin:$PATH"
+ENV
+    echo "Created ~/.deno/env"
+  fi
+else
+  echo "~/.deno directory missing; ensure deno installed"
+fi

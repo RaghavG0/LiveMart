@@ -18,6 +18,9 @@ import OrderTracking from "./pages/OrderTracking";
 import OfflineBooking from "./pages/OfflineBooking";
 import SellerOrderManagement from "./pages/SellerOrderManagement";
 import ConfirmDelivery from "./pages/ConfirmDelivery";
+import { AdminDashboard } from "./components/admin/AdminDashboard";
+import { NotificationPreferences } from "./components/notifications/NotificationPreferences";
+import { NotificationCenter } from "./components/notifications/NotificationCenter";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +45,9 @@ const App = () => (
           <Route path="/offline-booking" element={<OfflineBooking />} />
           <Route path="/seller-orders" element={<SellerOrderManagement />} />
           <Route path="/orders/confirm-delivery" element={<ConfirmDelivery />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/settings/notifications" element={<NotificationPreferences />} />
+          <Route path="/notifications" element={<NotificationCenter />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

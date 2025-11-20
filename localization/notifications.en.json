@@ -1,0 +1,14 @@
+{
+  "ORDER_STATUS_CHANGED.subject": "Your order status changed",
+  "ORDER_STATUS_CHANGED.body": "Your order status is now: {{status}}",
+  "ORDER_DELIVERED.subject": "Order delivered",
+  "ORDER_DELIVERED.body": "Your order {{orderNumber}} has been delivered.",
+  "DELIVERY_CONFIRMATION_SENT.subject": "Delivery confirmation",
+  "DELIVERY_CONFIRMATION_SENT.body": "Delivery confirmation has been sent for order {{orderNumber}}.",
+  "FEEDBACK_SUBMITTED.subject": "Thanks for your feedback",
+  "FEEDBACK_SUBMITTED.body": "We received your feedback on {{productName}}.",
+  "FEEDBACK_REPLY.subject": "Feedback reply",
+  "FEEDBACK_REPLY.body": "You have a new reply on your feedback.",
+  "FEEDBACK_APPROVED.subject": "Feedback approved",
+  "FEEDBACK_APPROVED.body": "Your feedback on {{productName}} was approved."
+}

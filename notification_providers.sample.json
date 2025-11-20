@@ -1,0 +1,16 @@
+{
+  "email": {
+    "provider": "stub",
+    "fromAddress": "no-reply@livemart.example",
+    "providerApiKeyEnv": "EMAIL_PROVIDER_API_KEY"
+  },
+  "sms": {
+    "provider": "stub",
+    "senderId": "LiveMart",
+    "providerApiKeyEnv": "SMS_PROVIDER_API_KEY"
+  },
+  "push": {
+    "provider": "stub",
+    "fcmServerKeyEnv": "FCM_SERVER_KEY"
+  }
+}

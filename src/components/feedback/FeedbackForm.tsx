@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import FeedbackRating from "./FeedbackRating";
+import { ImageUploadComponent } from "@/components/uploads/ImageUploadComponent";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +33,7 @@ const FeedbackForm = ({
   const { toast } = useToast();
   const [rating, setRating] = useState(existingReview?.rating || 0);
   const [comment, setComment] = useState(existingReview?.comment || "");
+  const [uploadedImageIds, setUploadedImageIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
@@ -74,12 +76,24 @@ const FeedbackForm = ({
           orderId,
           rating,
           comment: comment.trim() || undefined,
+          imageIds: uploadedImageIds.length > 0 ? uploadedImageIds : undefined,
         },
       });
 
       if (error) throw error;
 
       if (data?.success) {
+        // Mark images as referenced
+        if (uploadedImageIds.length > 0 && data.reviewId) {
+          for (const imageId of uploadedImageIds) {
+            await supabase.rpc('mark_image_referenced', {
+              p_image_id: imageId,
+              p_table_name: 'reviews',
+              p_record_id: data.reviewId
+            });
+          }
+        }
+
         setSubmitSuccess(true);
         toast({
           title: "Success!",
@@ -161,6 +175,22 @@ const FeedbackForm = ({
             <p className="text-xs text-muted-foreground text-right">
               {comment.length}/1000 characters
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Photos (Optional)</Label>
+            <ImageUploadComponent
+              uploadType="feedback_image"
+              maxFiles={3}
+              maxSizeMB={5}
+              onUploadComplete={(uploadIds) => {
+                setUploadedImageIds(prev => [...prev, ...uploadIds]);
+                toast({
+                  title: "Images uploaded",
+                  description: `${uploadIds.length} image(s) uploaded successfully`,
+                });
+              }}
+            />
           </div>
 
           {rating === 0 && (

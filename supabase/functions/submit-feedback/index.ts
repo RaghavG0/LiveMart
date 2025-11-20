@@ -75,9 +75,9 @@ serve(async (req: Request) => {
       );
     }
 
-    const { productId, orderId, rating, comment } = await req.json();
+    const { productId, orderId, rating, comment, imageIds } = await req.json();
 
-    console.log("Submit feedback request:", { productId, orderId, rating, userId: user.id });
+    console.log("Submit feedback request:", { productId, orderId, rating, imageIds, userId: user.id });
 
     // Validate required fields
     if (!productId || !orderId) {
@@ -114,6 +114,21 @@ serve(async (req: Request) => {
           success: false,
           error: "COMMENT_TOO_LONG",
           message: "Comment must be less than 1000 characters",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Validate imageIds if provided
+    if (imageIds && (!Array.isArray(imageIds) || imageIds.length > 3)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "INVALID_IMAGES",
+          message: "Maximum 3 images allowed per review",
         }),
         {
           status: 400,
@@ -212,13 +227,20 @@ serve(async (req: Request) => {
       // Update existing review
       console.log("Updating existing review:", existingReview.id);
       
+      const updateData: any = {
+        rating: ratingNum,
+        comment: sanitizedComment,
+        edited_at: new Date().toISOString(),
+      };
+
+      // Add media_urls if imageIds provided
+      if (imageIds && imageIds.length > 0) {
+        updateData.media_urls = imageIds;
+      }
+      
       const { data, error } = await supabase
         .from("reviews")
-        .update({
-          rating: ratingNum,
-          comment: sanitizedComment,
-          edited_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", existingReview.id)
         .select()
         .single();
@@ -234,15 +256,22 @@ serve(async (req: Request) => {
       // Create new review
       console.log("Creating new review");
       
+      const insertData: any = {
+        user_id: user.id,
+        product_id: productId,
+        order_id: orderId,
+        rating: ratingNum,
+        comment: sanitizedComment,
+      };
+
+      // Add media_urls if imageIds provided
+      if (imageIds && imageIds.length > 0) {
+        insertData.media_urls = imageIds;
+      }
+      
       const { data, error } = await supabase
         .from("reviews")
-        .insert({
-          user_id: user.id,
-          product_id: productId,
-          order_id: orderId,
-          rating: ratingNum,
-          comment: sanitizedComment,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -265,10 +294,12 @@ serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         message: isUpdate ? "Review updated successfully" : "Review submitted successfully",
+        reviewId: result.id,
         data: {
           id: result.id,
           rating: result.rating,
           comment: result.comment,
+          media_urls: result.media_urls,
           createdAt: result.created_at,
           editedAt: result.edited_at,
         },
