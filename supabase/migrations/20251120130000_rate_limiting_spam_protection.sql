@@ -479,7 +479,7 @@ CREATE POLICY "Users view own reports"
 -- Admins/moderators manage reports
 CREATE POLICY "Admins manage abuse reports"
   ON abuse_reports FOR ALL TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'moderator')));
+  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'moderator')));
 
 -- Users can view own reputation
 CREATE POLICY "Users view own reputation"
