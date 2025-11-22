@@ -2,6 +2,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   ShoppingBag, 
   Store, 
@@ -78,11 +80,58 @@ const LandingPage = () => {
     },
   ];
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  // Email validation regex
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // Validate email format on client side
+  const validateEmail = (email: string): boolean => {
+    return EMAIL_REGEX.test(email.trim());
+  };
+
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement subscription logic
-    console.log("Subscribing email:", email);
-    setEmail("");
+    
+    // Client-side validation
+    if (!email || !email.trim()) {
+      toast.error("Error: Please enter a valid email address.");
+      return;
+    }
+
+    const trimmedEmail = email.trim();
+    
+    if (!validateEmail(trimmedEmail)) {
+      toast.error("Error: Please enter a valid email address.");
+      return;
+    }
+
+    try {
+      // Call Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('subscribe-email', {
+        body: { email: trimmedEmail }
+      });
+
+      if (error) {
+        console.error('Subscription error:', error);
+        toast.error(error.message || "Subscription failed. Please try again later.");
+        return;
+      }
+
+      // Handle response
+      if (data) {
+        if (data.already_subscribed) {
+          toast.success("You are already subscribed!");
+        } else if (data.message) {
+          toast.success("Success! You are now subscribed to LiveMart alerts.");
+        } else {
+          toast.success("Success! You are now subscribed to LiveMart alerts.");
+        }
+        // Clear input field on success
+        setEmail("");
+      }
+    } catch (error: any) {
+      console.error('Subscription error:', error);
+      toast.error(error.message || "Subscription failed. Please try again later.");
+    }
   };
 
   return (
@@ -382,10 +431,13 @@ const LandingPage = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-white/10 backdrop-blur-sm border-white/20 text-white placeholder:text-gray-300 focus:border-primary focus:ring-primary"
                   required
+                  aria-label="Email address for subscription"
+                  aria-required="true"
                 />
                 <Button
                   type="submit"
                   className="bg-gradient-subscribe hover:opacity-90 text-white shadow-lg whitespace-nowrap"
+                  aria-label="Subscribe to LiveMart newsletter"
                 >
                   Subscribe
                   <ArrowRight className="ml-2 h-4 w-4" />
