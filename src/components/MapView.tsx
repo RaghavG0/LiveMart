@@ -5,6 +5,13 @@ import { Button } from '@/components/ui/button';
 import { X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+// Extend Window interface for OlaMaps SDK loaded from CDN
+declare global {
+  interface Window {
+    OlaMaps?: any;
+  }
+}
+
 interface MapViewProps {
   userLocation: { lat: number; lng: number } | null;
   onSellerSelect?: (sellerId: string) => void;
@@ -25,13 +32,33 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
   const [loading, setLoading] = useState(true);
-  const [OlaMaps, setOlaMaps] = useState<any>(null);
+  const [OlaMapsLoaded, setOlaMapsLoaded] = useState(false);
 
-  // Load OLA Maps SDK
+  // Load OLA Maps SDK from CDN
   useEffect(() => {
-    import('olamaps-web-sdk').then((module) => {
-      setOlaMaps(() => module.OlaMaps);
-    });
+    // Check if already loaded
+    if (typeof window.OlaMaps !== 'undefined') {
+      setOlaMapsLoaded(true);
+      return;
+    }
+
+    // Wait for CDN script to load
+    const checkOlaMaps = setInterval(() => {
+      if (typeof window.OlaMaps !== 'undefined') {
+        setOlaMapsLoaded(true);
+        clearInterval(checkOlaMaps);
+      }
+    }, 100);
+
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      clearInterval(checkOlaMaps);
+      if (typeof window.OlaMaps === 'undefined') {
+        console.error('OlaMaps SDK failed to load from CDN');
+        toast.error('Map failed to load. Please refresh the page.');
+        setLoading(false);
+      }
+    }, 10000);
   }, []);
 
   // Fetch sellers with locations
@@ -80,7 +107,7 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
 
   // Initialize map
   useEffect(() => {
-    if (!OlaMaps || !mapContainer.current || mapInstance.current) return;
+    if (!OlaMapsLoaded || !mapContainer.current || mapInstance.current) return;
 
     const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
     if (!apiKey) {
@@ -89,8 +116,17 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
       return;
     }
 
+    // @ts-ignore - OlaMaps is loaded from CDN
+    if (typeof window.OlaMaps === 'undefined') {
+      console.error('OlaMaps SDK not available');
+      toast.error('Map SDK not loaded. Please refresh the page.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const olaMaps = new OlaMaps({ apiKey });
+      // @ts-ignore - OlaMaps is loaded from CDN
+      const olaMaps = new window.OlaMaps({ apiKey });
 
       const center = userLocation 
         ? [userLocation.lng, userLocation.lat]
@@ -162,7 +198,7 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
       toast.error('Failed to initialize map');
       setLoading(false);
     }
-  }, [OlaMaps, userLocation, sellers, onSellerSelect]);
+  }, [OlaMapsLoaded, userLocation, sellers, onSellerSelect]);
 
   if (loading) {
     return (

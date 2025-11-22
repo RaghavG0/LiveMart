@@ -33,6 +33,13 @@ export const LocationPicker = ({
 
     const loadMap = async () => {
       try {
+        // Wait for OlaMaps SDK to load from CDN
+        let attempts = 0;
+        while (typeof window.OlaMaps === 'undefined' && attempts < 50) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+
         // Check if OlaMaps SDK is loaded
         // @ts-ignore - OlaMaps is loaded from CDN
         if (typeof window.OlaMaps === 'undefined') {

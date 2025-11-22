@@ -74,6 +74,33 @@ const Account = () => {
       if (error) throw error;
       if (data) {
         setProfile(data);
+        
+        // If we have coordinates but no address components, try to reverse geocode
+        if (data.location_lat && data.location_lng && 
+            (!data.location_address || data.location_address.match(/^\d+\.\d+,\s*\d+\.\d+$/))) {
+          // Coordinates exist but address is missing or is just coordinates
+          // Try to reverse geocode in background (non-blocking)
+          const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
+          if (apiKey) {
+            reverseGeocode(Number(data.location_lat), Number(data.location_lng), apiKey)
+              .then((addressComponents) => {
+                // Update profile with address components
+                setProfile(prev => ({
+                  ...prev,
+                  location_address: addressComponents.formatted_address || prev.location_address,
+                  location_area: addressComponents.area || null,
+                  location_city: addressComponents.city || null,
+                  location_district: addressComponents.district || null,
+                  location_state: addressComponents.state || null,
+                  location_country: addressComponents.country || null,
+                  location_pincode: addressComponents.pincode || null,
+                }));
+              })
+              .catch((err) => {
+                console.error('Background reverse geocoding failed:', err);
+              });
+          }
+        }
       }
     } catch (error: any) {
       toast.error("Failed to load profile");
@@ -445,11 +472,18 @@ const Account = () => {
                 <div className="flex gap-2">
                   <Input
                     id="address"
-                    value={profile.location_address || ""}
+                    value={
+                      profile.location_address && !profile.location_address.match(/^\d+\.\d+,\s*\d+\.\d+$/)
+                        ? profile.location_address
+                        : profile.location_area || profile.location_city || profile.location_state
+                          ? [profile.location_area, profile.location_city, profile.location_district, 
+                             profile.location_state, profile.location_pincode].filter(Boolean).join(', ')
+                          : profile.location_address || ""
+                    }
                     onChange={(e) =>
                       setProfile({ ...profile, location_address: e.target.value })
                     }
-                    placeholder="Enter your address"
+                    placeholder="Enter your address or let it auto-fill from location"
                     className="flex-1"
                   />
                   <Button
@@ -462,7 +496,7 @@ const Account = () => {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Click the pin icon to convert address to coordinates
+                  Click the pin icon to convert address to coordinates, or use location button below to auto-fill
                 </p>
               </div>
 
@@ -510,7 +544,17 @@ const Account = () => {
                 <div className="flex gap-2">
                   <Input
                     id="location"
-                    value={profile.location_address || "Not set"}
+                    value={
+                      profile.location_address && !profile.location_address.match(/^\d+\.\d+,\s*\d+\.\d+$/)
+                        ? profile.location_address
+                        : profile.location_city && profile.location_state
+                          ? `${profile.location_city}, ${profile.location_state}${profile.location_pincode ? ` ${profile.location_pincode}` : ''}`
+                          : profile.location_area || profile.location_city || profile.location_state
+                            ? [profile.location_area, profile.location_city, profile.location_state, profile.location_pincode].filter(Boolean).join(', ')
+                            : profile.location_lat && profile.location_lng
+                              ? `${profile.location_lat.toFixed(6)}, ${profile.location_lng.toFixed(6)}`
+                              : "Not set"
+                    }
                     disabled
                     className="flex-1"
                   />
@@ -528,19 +572,56 @@ const Account = () => {
                   </Button>
                 </div>
                 {profile.location_lat && profile.location_lng && (
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>Coordinates: {profile.location_lat.toFixed(6)}, {profile.location_lng.toFixed(6)}</p>
-                    {(profile.location_area || profile.location_city || profile.location_state || profile.location_pincode) && (
-                      <div className="mt-2 pt-2 border-t border-border">
-                        <p className="font-medium text-foreground mb-1">Address Details:</p>
-                        <div className="grid grid-cols-2 gap-1">
-                          {profile.location_area && <p><span className="font-medium">Area:</span> {profile.location_area}</p>}
-                          {profile.location_city && <p><span className="font-medium">City:</span> {profile.location_city}</p>}
-                          {profile.location_district && <p><span className="font-medium">District:</span> {profile.location_district}</p>}
-                          {profile.location_state && <p><span className="font-medium">State:</span> {profile.location_state}</p>}
-                          {profile.location_country && <p><span className="font-medium">Country:</span> {profile.location_country}</p>}
-                          {profile.location_pincode && <p><span className="font-medium">Pincode:</span> {profile.location_pincode}</p>}
+                  <div className="text-xs text-muted-foreground space-y-2">
+                    <p className="text-xs">Coordinates: {profile.location_lat.toFixed(6)}, {profile.location_lng.toFixed(6)}</p>
+                    {(profile.location_area || profile.location_city || profile.location_district || 
+                      profile.location_state || profile.location_country || profile.location_pincode) ? (
+                      <div className="mt-2 pt-2 border-t border-border bg-muted/30 p-3 rounded-lg">
+                        <p className="font-medium text-foreground mb-2 text-sm">Address Details:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {profile.location_area && (
+                            <div>
+                              <span className="font-medium text-foreground">Area/Locality: </span>
+                              <span>{profile.location_area}</span>
+                            </div>
+                          )}
+                          {profile.location_city && (
+                            <div>
+                              <span className="font-medium text-foreground">City: </span>
+                              <span>{profile.location_city}</span>
+                            </div>
+                          )}
+                          {profile.location_district && (
+                            <div>
+                              <span className="font-medium text-foreground">District: </span>
+                              <span>{profile.location_district}</span>
+                            </div>
+                          )}
+                          {profile.location_state && (
+                            <div>
+                              <span className="font-medium text-foreground">State: </span>
+                              <span>{profile.location_state}</span>
+                            </div>
+                          )}
+                          {profile.location_country && (
+                            <div>
+                              <span className="font-medium text-foreground">Country: </span>
+                              <span>{profile.location_country}</span>
+                            </div>
+                          )}
+                          {profile.location_pincode && (
+                            <div>
+                              <span className="font-medium text-foreground">Pincode: </span>
+                              <span>{profile.location_pincode}</span>
+                            </div>
+                          )}
                         </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <p className="text-xs text-muted-foreground italic">
+                          Address details not available. Click the location button to update with full address.
+                        </p>
                       </div>
                     )}
                   </div>
