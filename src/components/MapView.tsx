@@ -7,23 +7,13 @@ import { Button } from '@/components/ui/button';
 import { X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Fix for default marker icon in Leaflet
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  iconRetinaUrl: iconRetina,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  tooltipAnchor: [16, -28],
-  shadowSize: [41, 41]
+// Fix for default marker icon in Leaflet - use CDN URLs for production compatibility
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 interface MapViewProps {
   userLocation: { lat: number; lng: number } | null;
@@ -120,14 +110,18 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
 
       mapInstance.current = map;
 
+      // Fallback: Set loading to false after timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log('Map loading timeout - forcing loading to false');
+        setLoading(false);
+      }, 5000);
+
       // Wait for map to be ready before adding markers and setting loading to false
       map.whenReady(() => {
-        // Force a resize to ensure map renders properly
-        map.invalidateSize();
+        // Clear the fallback timeout
+        clearTimeout(timeoutId);
         
-      // Wait for map to be ready before adding markers
-      map.whenReady(() => {
-        // Force resize to ensure map renders properly
+        // Force a resize to ensure map renders properly
         map.invalidateSize();
         
         // Add user location marker if available
@@ -148,17 +142,6 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
         setTimeout(() => {
           setLoading(false);
         }, 500);
-      });
-      
-      // Fallback: Set loading to false after timeout to prevent infinite loading
-      const timeoutId = setTimeout(() => {
-        console.log('Map loading timeout - forcing loading to false');
-        setLoading(false);
-      }, 5000);
-      
-      // Clear timeout when map is ready
-      map.whenReady(() => {
-        clearTimeout(timeoutId);
       });
     } catch (error) {
       console.error('Error initializing map:', error);

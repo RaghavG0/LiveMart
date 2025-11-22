@@ -5,23 +5,13 @@ import { Card } from "@/components/ui/card";
 import { Loader2, MapPin } from "lucide-react";
 import { reverseGeocode, type AddressComponents } from "@/lib/reverseGeocode";
 
-// Fix for default marker icon in Leaflet
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  iconRetinaUrl: iconRetina,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  tooltipAnchor: [16, -28],
-  shadowSize: [41, 41]
+// Fix for default marker icon in Leaflet - use CDN URLs for production compatibility
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 interface LocationPickerProps {
   initialLat?: number | null;
