@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -92,7 +93,13 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || mapInstance.current) return;
+    if (!mapContainer.current || mapInstance.current) {
+      // Map already initialized, just update if needed
+      if (mapInstance.current && userLocation) {
+        mapInstance.current.setView([userLocation.lat, userLocation.lng], 12);
+      }
+      return;
+    }
 
     try {
       const center = userLocation 
@@ -113,21 +120,46 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
 
       mapInstance.current = map;
 
-      // Add user location marker if available
-      if (userLocation) {
-        const userMarker = L.marker([userLocation.lat, userLocation.lng], {
-          icon: L.divIcon({
-            className: 'user-location-marker',
-            html: '<div style="width: 20px; height: 20px; border-radius: 50%; background-color: hsl(var(--primary)); border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10],
-          })
-        }).addTo(map);
+      // Wait for map to be ready before adding markers and setting loading to false
+      map.whenReady(() => {
+        // Force a resize to ensure map renders properly
+        map.invalidateSize();
+        
+      // Wait for map to be ready before adding markers
+      map.whenReady(() => {
+        // Force resize to ensure map renders properly
+        map.invalidateSize();
+        
+        // Add user location marker if available
+        if (userLocation) {
+          const userMarker = L.marker([userLocation.lat, userLocation.lng], {
+            icon: L.divIcon({
+              className: 'user-location-marker',
+              html: '<div style="width: 20px; height: 20px; border-radius: 50%; background-color: hsl(var(--primary)); border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>',
+              iconSize: [20, 20],
+              iconAnchor: [10, 10],
+            })
+          }).addTo(map);
 
-        markersRef.current.push(userMarker);
-      }
-
-      setLoading(false);
+          markersRef.current.push(userMarker);
+        }
+        
+        // Set loading to false after map is ready and tiles start loading
+        setTimeout(() => {
+          setLoading(false);
+        }, 500);
+      });
+      
+      // Fallback: Set loading to false after timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log('Map loading timeout - forcing loading to false');
+        setLoading(false);
+      }, 5000);
+      
+      // Clear timeout when map is ready
+      map.whenReady(() => {
+        clearTimeout(timeoutId);
+      });
     } catch (error) {
       console.error('Error initializing map:', error);
       toast.error('Failed to initialize map');
@@ -187,21 +219,22 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
     };
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[600px] bg-muted/10 rounded-lg">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-          <p className="text-muted-foreground">Loading map...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="relative">
-      <div className="relative h-[600px]">
-        <div ref={mapContainer} className="w-full h-full rounded-lg border shadow-lg" />
+    <div className="relative w-full">
+      <div className="relative h-[600px] w-full">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm rounded-lg z-[1000]">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
+              <p className="text-muted-foreground">Loading map...</p>
+            </div>
+          </div>
+        )}
+        <div 
+          ref={mapContainer} 
+          className="w-full h-full rounded-lg border shadow-lg"
+          style={{ minHeight: '600px' }}
+        />
         
         {sellers.length === 0 && !loading && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border z-[1000]">
