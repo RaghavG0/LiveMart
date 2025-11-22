@@ -68,6 +68,8 @@ export default {
         "gradient-secondary": "var(--gradient-secondary)",
         "gradient-hero": "var(--gradient-hero)",
         "gradient-card": "var(--gradient-card)",
+        "gradient-footer": "var(--gradient-footer)",
+        "gradient-subscribe": "var(--gradient-subscribe)",
       },
       boxShadow: {
         sm: "var(--shadow-sm)",
