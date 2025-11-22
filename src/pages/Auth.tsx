@@ -49,11 +49,10 @@ const Auth = () => {
         const lng = position.coords.longitude;
 
         try {
-          const response = await fetch(
-            `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${lng}&api_key=${import.meta.env.VITE_OLA_MAPS_API_KEY}`
-          );
-          const data = await response.json();
-          const address = data.results?.[0]?.formatted_address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          // Use Nominatim for reverse geocoding (free, no API key required)
+          const { reverseGeocode } = await import('@/lib/reverseGeocode');
+          const addressComponents = await reverseGeocode(lat, lng);
+          const address = addressComponents?.formatted_address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
           setLocationAddress(address);
           setLocationLat(lat);
@@ -103,18 +102,14 @@ const Auth = () => {
     }
 
     try {
-      const response = await fetch(
-        `https://api.olamaps.io/places/v1/geocode?address=${encodeURIComponent(locationAddress)}&api_key=${import.meta.env.VITE_OLA_MAPS_API_KEY}`
-      );
-      const data = await response.json();
+      // Use Nominatim for forward geocoding (free, no API key required)
+      const { forwardGeocode } = await import('@/lib/reverseGeocode');
+      const coords = await forwardGeocode(locationAddress);
       
-      if (data.geocodingResults?.[0]) {
-        const result = data.geocodingResults[0];
-        setLocationLat(result.geometry.location.lat);
-        setLocationLng(result.geometry.location.lng);
+      if (coords) {
+        setLocationLat(coords.lat);
+        setLocationLng(coords.lng);
         toast.success("Address geocoded successfully");
-      } else {
-        toast.error("Could not find coordinates for this address");
       }
     } catch (error) {
       toast.error("Failed to geocode address");

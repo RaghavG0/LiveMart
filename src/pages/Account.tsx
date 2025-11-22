@@ -11,7 +11,7 @@ import { User } from "@supabase/supabase-js";
 import { LocationPicker } from "@/components/LocationPicker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import MyReviews from "@/components/feedback/MyReviews";
-import { reverseGeocode, type AddressComponents } from "@/lib/reverseGeocode";
+import { reverseGeocode, forwardGeocode, type AddressComponents } from "@/lib/reverseGeocode";
 
 interface Profile {
   full_name: string;
@@ -80,10 +80,9 @@ const Account = () => {
             (!data.location_address || data.location_address.match(/^\d+\.\d+,\s*\d+\.\d+$/))) {
           // Coordinates exist but address is missing or is just coordinates
           // Try to reverse geocode in background (non-blocking)
-          const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
-          if (apiKey) {
-            reverseGeocode(Number(data.location_lat), Number(data.location_lng), apiKey)
-              .then((addressComponents) => {
+          reverseGeocode(Number(data.location_lat), Number(data.location_lng))
+            .then((addressComponents) => {
+              if (addressComponents) {
                 // Update profile with address components
                 setProfile(prev => ({
                   ...prev,
@@ -95,11 +94,11 @@ const Account = () => {
                   location_country: addressComponents.country || null,
                   location_pincode: addressComponents.pincode || null,
                 }));
-              })
-              .catch((err) => {
-                console.error('Background reverse geocoding failed:', err);
-              });
-          }
+              }
+            })
+            .catch((err) => {
+              console.error('Background reverse geocoding failed:', err);
+            });
         }
       }
     } catch (error: any) {
@@ -171,12 +170,7 @@ const Account = () => {
 
         // Reverse geocode to get address components
         try {
-          const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
-          if (!apiKey) {
-            throw new Error('Maps API key not configured');
-          }
-
-          const addressComponents: AddressComponents = await reverseGeocode(lat, lng, apiKey);
+          const addressComponents: AddressComponents | null = await reverseGeocode(lat, lng);
 
           setProfile({
             ...profile,
@@ -265,23 +259,18 @@ const Account = () => {
     }
 
     try {
-      const response = await fetch(
-        `https://api.olamaps.io/places/v1/geocode?address=${encodeURIComponent(profile.location_address)}&api_key=${import.meta.env.VITE_OLA_MAPS_API_KEY}`
-      );
-      const data = await response.json();
+      const coords = await forwardGeocode(profile.location_address);
       
-      if (data.geocodingResults?.[0]) {
-        const result = data.geocodingResults[0];
+      if (coords) {
         setProfile({
           ...profile,
-          location_lat: result.geometry.location.lat,
-          location_lng: result.geometry.location.lng,
+          location_lat: coords.lat,
+          location_lng: coords.lng,
         });
         toast.success("Address geocoded successfully");
-      } else {
-        toast.error("Could not find coordinates for this address");
       }
     } catch (error) {
+      console.error('Geocoding failed:', error);
       toast.error("Failed to geocode address");
     }
   };
@@ -304,9 +293,8 @@ const Account = () => {
     } else {
       // Fallback: Get address components if not provided
       try {
-        const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
-        if (apiKey) {
-          const components: AddressComponents = await reverseGeocode(lat, lng, apiKey);
+        const components: AddressComponents | null = await reverseGeocode(lat, lng);
+        if (components) {
           setProfile({
             ...profile,
             location_lat: lat,
@@ -646,7 +634,6 @@ const Account = () => {
                     initialLat={profile.location_lat}
                     initialLng={profile.location_lng}
                     onLocationSelect={handleLocationSelect}
-                    apiKey={import.meta.env.VITE_OLA_MAPS_API_KEY}
                   />
                 </DialogContent>
               </Dialog>

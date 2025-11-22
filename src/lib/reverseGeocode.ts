@@ -1,151 +1,99 @@
-/**
- * Reverse geocoding utility to extract address components from coordinates
- */
+import { toast } from "sonner";
 
-export interface AddressComponents {
+interface AddressComponents {
   formatted_address: string;
-  area?: string;
-  city?: string;
-  district?: string;
-  state?: string;
-  country?: string;
-  pincode?: string;
+  area: string | null;
+  city: string | null;
+  district: string | null;
+  state: string | null;
+  country: string | null;
+  pincode: string | null;
 }
 
-/**
- * Extract address components from Ola Maps reverse geocode response
- * Maps the API response to our address component structure
- */
-export function extractAddressComponents(data: any): AddressComponents {
-  const result = data.results?.[0];
-  if (!result) {
-    return {
-      formatted_address: '',
-      area: undefined,
-      city: undefined,
-      district: undefined,
-      state: undefined,
-      country: undefined,
-      pincode: undefined,
-    };
-  }
-
+// Helper to extract address components from Nominatim API response
+function extractAddressComponents(result: any): AddressComponents {
+  const address = result.address || {};
   const components: AddressComponents = {
-    formatted_address: result.formatted_address || '',
-    area: undefined,
-    city: undefined,
-    district: undefined,
-    state: undefined,
-    country: undefined,
-    pincode: undefined,
+    formatted_address: result.display_name || '',
+    area: address.neighbourhood || address.suburb || address.village || null,
+    city: address.city || address.town || address.municipality || address.county || null,
+    district: address.state_district || address.district || null,
+    state: address.state || address.region || null,
+    country: address.country || null,
+    pincode: address.postcode || null,
   };
-
-  // Extract address components from address_components array
-  if (result.address_components && Array.isArray(result.address_components)) {
-    for (const component of result.address_components) {
-      const types = component.types || [];
-      const longName = component.long_name || component.short_name;
-      
-      // Extract area/locality (prioritize sublocality_level_1, then sublocality, then neighborhood)
-      if (!components.area) {
-        if (types.includes('sublocality_level_1')) {
-          components.area = longName;
-        } else if (types.includes('sublocality') && !components.area) {
-          components.area = longName;
-        } else if (types.includes('neighborhood') && !components.area) {
-          components.area = longName;
-        }
-      }
-      
-      // Extract city (prioritize locality, then administrative_area_level_2)
-      if (!components.city) {
-        if (types.includes('locality')) {
-          components.city = longName;
-        } else if (types.includes('administrative_area_level_2') && !components.city) {
-          components.city = longName;
-        }
-      }
-      
-      // Extract district (administrative_area_level_2, but not if already used as city)
-      if (!components.district && types.includes('administrative_area_level_2')) {
-        components.district = longName;
-      }
-      
-      // Extract state (administrative_area_level_1)
-      if (!components.state && types.includes('administrative_area_level_1')) {
-        components.state = longName;
-      }
-      
-      // Extract country
-      if (!components.country && types.includes('country')) {
-        components.country = longName;
-      }
-      
-      // Extract pincode/postal_code
-      if (!components.pincode && types.includes('postal_code')) {
-        components.pincode = longName;
-      }
-    }
-  }
-
-  // Fallback: Try to extract from formatted_address if components are missing
-  if (!components.city && result.formatted_address) {
-    // Try to parse city from formatted address (usually after locality)
-    const parts = result.formatted_address.split(',');
-    if (parts.length > 1) {
-      components.city = parts[parts.length - 2]?.trim();
-    }
-  }
 
   return components;
 }
 
 /**
- * Perform reverse geocoding using Ola Maps API
- * Returns address components including area, city, district, state, country, pincode
+ * Reverse geocode coordinates to get full address using Nominatim (OpenStreetMap)
+ * Free service, no API key required
  */
-export async function reverseGeocode(
-  lat: number,
-  lng: number,
-  apiKey: string
-): Promise<AddressComponents> {
+export async function reverseGeocode(lat: number, lng: number, apiKey?: string): Promise<AddressComponents | null> {
   try {
+    // Use Nominatim (OpenStreetMap) - free, no API key required
     const response = await fetch(
-      `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${lng}&api_key=${apiKey}`
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'LiveMart/1.0', // Required by Nominatim
+        },
+      }
     );
 
     if (!response.ok) {
-      throw new Error(`Reverse geocode API error: ${response.status}`);
+      throw new Error(`Nominatim API error: ${response.status}`);
     }
 
     const data = await response.json();
-    
-    if (!data.results || data.results.length === 0) {
-      // Fallback to coordinates if no address found
-      return {
-        formatted_address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-        area: undefined,
-        city: undefined,
-        district: undefined,
-        state: undefined,
-        country: undefined,
-        pincode: undefined,
-      };
-    }
 
-    return extractAddressComponents(data);
+    if (data && data.lat && data.lon) {
+      return extractAddressComponents(data);
+    } else {
+      toast.error("Could not find address for this location.");
+      return null;
+    }
   } catch (error) {
-    console.error('Reverse geocoding failed:', error);
-    // Fallback to coordinates
-    return {
-      formatted_address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-      area: undefined,
-      city: undefined,
-      district: undefined,
-      state: undefined,
-      country: undefined,
-      pincode: undefined,
-    };
+    console.error("Reverse geocoding failed:", error);
+    toast.error("Failed to get address details. Please try again.");
+    return null;
   }
 }
 
+/**
+ * Forward geocode address to get coordinates using Nominatim (OpenStreetMap)
+ * Free service, no API key required
+ */
+export async function forwardGeocode(address: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'LiveMart/1.0', // Required by Nominatim
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Nominatim API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon),
+      };
+    } else {
+      toast.error("Could not find coordinates for this address.");
+      return null;
+    }
+  } catch (error) {
+    console.error("Forward geocoding failed:", error);
+    toast.error("Failed to geocode address. Please try again.");
+    return null;
+  }
+}

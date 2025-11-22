@@ -213,15 +213,12 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
             onLocationGranted={async (lat, lng) => {
               try {
                 // Get address components
-                const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
                 let addressComponents: AddressComponents | null = null;
                 
-                if (apiKey) {
-                  try {
-                    addressComponents = await reverseGeocode(lat, lng, apiKey);
-                  } catch (error) {
-                    console.error('Reverse geocoding failed:', error);
-                  }
+                try {
+                  addressComponents = await reverseGeocode(lat, lng);
+                } catch (error) {
+                  console.error('Reverse geocoding failed:', error);
                 }
 
                 // Save location to user profile for future use

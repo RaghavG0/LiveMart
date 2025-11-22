@@ -1,14 +1,33 @@
 import { useEffect, useRef, useState } from "react";
+import L from "leaflet";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Loader2, MapPin } from "lucide-react";
 import { reverseGeocode, type AddressComponents } from "@/lib/reverseGeocode";
 
+// Fix for default marker icon in Leaflet
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  iconRetinaUrl: iconRetina,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  tooltipAnchor: [16, -28],
+  shadowSize: [41, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
 interface LocationPickerProps {
   initialLat?: number | null;
   initialLng?: number | null;
   onLocationSelect: (lat: number, lng: number, address: string, addressComponents?: AddressComponents) => void;
-  apiKey: string;
+  apiKey?: string; // Optional, not needed for Leaflet + OpenStreetMap
 }
 
 export const LocationPicker = ({
@@ -18,8 +37,8 @@ export const LocationPicker = ({
   apiKey,
 }: LocationPickerProps) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState<{
     lat: number;
@@ -33,57 +52,52 @@ export const LocationPicker = ({
 
     const loadMap = async () => {
       try {
-        // Wait for OlaMaps SDK to load from CDN
-        let attempts = 0;
-        while (typeof window.OlaMaps === 'undefined' && attempts < 50) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          attempts++;
-        }
-
-        // Check if OlaMaps SDK is loaded
-        // @ts-ignore - OlaMaps is loaded from CDN
-        if (typeof window.OlaMaps === 'undefined') {
-          console.error('OlaMaps SDK not loaded. Make sure the script is included in index.html');
-          setLoading(false);
-          return;
-        }
-
-        // @ts-ignore
-        const olaMaps = new window.OlaMaps({ apiKey });
-
         const defaultLat = initialLat || 28.6139;
         const defaultLng = initialLng || 77.2090;
 
-        const map = olaMaps.init({
-          container: mapContainerRef.current,
-          center: [defaultLng, defaultLat],
+        // Create map
+        const map = L.map(mapContainerRef.current!, {
+          center: [defaultLat, defaultLng],
           zoom: 15,
-          style: "https://api.olamaps.io/tiles/vector/v1/styles/default-light-standard/style.json",
         });
+
+        // Add OpenStreetMap tiles (free, no API key required)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+        }).addTo(map);
 
         mapInstanceRef.current = map;
 
-        // Add draggable marker
-        const marker = olaMaps
-          .addMarker({
-            color: "#3b82f6",
-            draggable: true,
+        // Create draggable marker
+        const marker = L.marker([defaultLat, defaultLng], {
+          draggable: true,
+          icon: L.divIcon({
+            className: 'custom-draggable-marker',
+            html: '<div style="width: 30px; height: 30px; border-radius: 50% 50% 50% 0; background-color: #3b82f6; border: 3px solid white; transform: rotate(-45deg); box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div><div style="width: 8px; height: 8px; border-radius: 50%; background-color: white; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 30],
           })
-          .setLngLat([defaultLng, defaultLat])
-          .addTo(map);
+        }).addTo(map);
 
         markerRef.current = marker;
 
         // Handle marker drag end
-        marker.on("dragend", async () => {
-          const lngLat = marker.getLngLat();
-          await handleReverseGeocode(lngLat.lat, lngLat.lng);
+        marker.on("dragend", async (e) => {
+          const latlng = marker.getLatLng();
+          await handleReverseGeocode(latlng.lat, latlng.lng);
         });
 
         // Initial reverse geocode
         if (initialLat && initialLng) {
           await handleReverseGeocode(initialLat, initialLng);
         }
+
+        // Also allow clicking on map to set location
+        map.on("click", async (e) => {
+          marker.setLatLng(e.latlng);
+          await handleReverseGeocode(e.latlng.lat, e.latlng.lng);
+        });
 
         setLoading(false);
       } catch (error) {
@@ -97,19 +111,20 @@ export const LocationPicker = ({
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
       }
     };
-  }, [apiKey, initialLat, initialLng]);
+  }, [initialLat, initialLng]);
 
   const handleReverseGeocode = async (lat: number, lng: number) => {
     try {
-      const addressComponents = await reverseGeocode(lat, lng, apiKey);
+      const addressComponents = await reverseGeocode(lat, lng);
       
       setSelectedLocation({ 
         lat, 
         lng, 
-        address: addressComponents.formatted_address,
-        addressComponents 
+        address: addressComponents?.formatted_address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        addressComponents: addressComponents || undefined
       });
     } catch (error) {
       console.error("Reverse geocode failed:", error);
@@ -140,7 +155,7 @@ export const LocationPicker = ({
           className="w-full h-[400px] rounded-lg overflow-hidden"
         />
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+          <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-[1000]">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         )}
@@ -178,7 +193,7 @@ export const LocationPicker = ({
       )}
 
       <p className="text-xs text-muted-foreground text-center">
-        Drag the marker to select your exact location
+        Drag the marker or click on the map to select your exact location
       </p>
     </Card>
   );

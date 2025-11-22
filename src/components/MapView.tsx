@@ -1,16 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Extend Window interface for OlaMaps SDK loaded from CDN
-declare global {
-  interface Window {
-    OlaMaps?: any;
-  }
-}
+// Fix for default marker icon in Leaflet
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  iconRetinaUrl: iconRetina,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  tooltipAnchor: [16, -28],
+  shadowSize: [41, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
 
 interface MapViewProps {
   userLocation: { lat: number; lng: number } | null;
@@ -28,38 +40,11 @@ interface Seller {
 
 const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<any>(null);
+  const mapInstance = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
   const [loading, setLoading] = useState(true);
-  const [OlaMapsLoaded, setOlaMapsLoaded] = useState(false);
-
-  // Load OLA Maps SDK from CDN
-  useEffect(() => {
-    // Check if already loaded
-    if (typeof window.OlaMaps !== 'undefined') {
-      setOlaMapsLoaded(true);
-      return;
-    }
-
-    // Wait for CDN script to load
-    const checkOlaMaps = setInterval(() => {
-      if (typeof window.OlaMaps !== 'undefined') {
-        setOlaMapsLoaded(true);
-        clearInterval(checkOlaMaps);
-      }
-    }, 100);
-
-    // Timeout after 10 seconds
-    setTimeout(() => {
-      clearInterval(checkOlaMaps);
-      if (typeof window.OlaMaps === 'undefined') {
-        console.error('OlaMaps SDK failed to load from CDN');
-        toast.error('Map failed to load. Please refresh the page.');
-        setLoading(false);
-      }
-    }, 10000);
-  }, []);
 
   // Fetch sellers with locations
   useEffect(() => {
@@ -107,90 +92,40 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
 
   // Initialize map
   useEffect(() => {
-    if (!OlaMapsLoaded || !mapContainer.current || mapInstance.current) return;
-
-    const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
-    if (!apiKey) {
-      toast.error('OLA Maps API key not configured');
-      setLoading(false);
-      return;
-    }
-
-    // @ts-ignore - OlaMaps is loaded from CDN
-    if (typeof window.OlaMaps === 'undefined') {
-      console.error('OlaMaps SDK not available');
-      toast.error('Map SDK not loaded. Please refresh the page.');
-      setLoading(false);
-      return;
-    }
+    if (!mapContainer.current || mapInstance.current) return;
 
     try {
-      // @ts-ignore - OlaMaps is loaded from CDN
-      const olaMaps = new window.OlaMaps({ apiKey });
-
       const center = userLocation 
-        ? [userLocation.lng, userLocation.lat]
-        : [77.5946, 12.9716]; // Default to Bangalore
+        ? [userLocation.lat, userLocation.lng] as [number, number]
+        : [12.9716, 77.5946] as [number, number]; // Default to Bangalore
 
-      const myMap = olaMaps.init({
-        style: 'https://api.olamaps.io/tiles/vector/v1/styles/default-light-standard/style.json',
-        container: mapContainer.current,
+      // Create map
+      const map = L.map(mapContainer.current, {
         center,
         zoom: userLocation ? 12 : 10,
       });
 
-      mapInstance.current = { olaMaps, myMap };
+      // Add OpenStreetMap tiles (free, no API key required)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
+
+      mapInstance.current = map;
 
       // Add user location marker if available
       if (userLocation) {
-        const userMarkerEl = document.createElement('div');
-        userMarkerEl.className = 'user-location-marker';
-        userMarkerEl.style.width = '20px';
-        userMarkerEl.style.height = '20px';
-        userMarkerEl.style.borderRadius = '50%';
-        userMarkerEl.style.backgroundColor = 'hsl(var(--primary))';
-        userMarkerEl.style.border = '3px solid white';
-        userMarkerEl.style.boxShadow = '0 0 10px rgba(0,0,0,0.3)';
+        const userMarker = L.marker([userLocation.lat, userLocation.lng], {
+          icon: L.divIcon({
+            className: 'user-location-marker',
+            html: '<div style="width: 20px; height: 20px; border-radius: 50%; background-color: hsl(var(--primary)); border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10],
+          })
+        }).addTo(map);
 
-        olaMaps
-          .addMarker({ element: userMarkerEl })
-          .setLngLat([userLocation.lng, userLocation.lat])
-          .addTo(myMap);
+        markersRef.current.push(userMarker);
       }
-
-      // Add seller markers
-      sellers.forEach((seller) => {
-        const markerEl = document.createElement('div');
-        markerEl.className = 'seller-marker';
-        markerEl.style.width = '30px';
-        markerEl.style.height = '30px';
-        markerEl.style.borderRadius = '50%';
-        markerEl.style.backgroundColor = seller.role === 'retailer' 
-          ? 'hsl(var(--secondary))' 
-          : 'hsl(var(--accent))';
-        markerEl.style.border = '2px solid white';
-        markerEl.style.cursor = 'pointer';
-        markerEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-        markerEl.style.display = 'flex';
-        markerEl.style.alignItems = 'center';
-        markerEl.style.justifyContent = 'center';
-        markerEl.style.color = 'white';
-        markerEl.style.fontSize = '12px';
-        markerEl.style.fontWeight = 'bold';
-        markerEl.innerHTML = seller.role === 'retailer' ? 'R' : 'W';
-
-        markerEl.addEventListener('click', () => {
-          setSelectedSeller(seller);
-          if (onSellerSelect) {
-            onSellerSelect(seller.id);
-          }
-        });
-
-        olaMaps
-          .addMarker({ element: markerEl })
-          .setLngLat([seller.location_lng, seller.location_lat])
-          .addTo(myMap);
-      });
 
       setLoading(false);
     } catch (error) {
@@ -198,7 +133,59 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
       toast.error('Failed to initialize map');
       setLoading(false);
     }
-  }, [OlaMapsLoaded, userLocation, sellers, onSellerSelect]);
+  }, [userLocation]);
+
+  // Add seller markers when sellers change
+  useEffect(() => {
+    if (!mapInstance.current || loading) return;
+
+    // Clear existing seller markers
+    markersRef.current.forEach(marker => {
+      if (marker instanceof L.Marker) {
+        mapInstance.current?.removeLayer(marker);
+      }
+    });
+    markersRef.current = markersRef.current.filter(m => {
+      if (userLocation && m.getLatLng().lat === userLocation.lat) {
+        return true; // Keep user location marker
+      }
+      return false;
+    });
+
+    // Add seller markers
+    sellers.forEach((seller) => {
+      const isRetailer = seller.role === 'retailer';
+      const markerColor = isRetailer ? 'hsl(var(--secondary))' : 'hsl(var(--accent))';
+      
+      const sellerMarker = L.marker([seller.location_lat, seller.location_lng], {
+        icon: L.divIcon({
+          className: 'seller-marker',
+          html: `<div style="width: 30px; height: 30px; border-radius: 50%; background-color: ${markerColor}; border: 2px solid white; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">${seller.role === 'retailer' ? 'R' : 'W'}</div>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+        })
+      }).addTo(mapInstance.current!);
+
+      sellerMarker.on('click', () => {
+        setSelectedSeller(seller);
+        if (onSellerSelect) {
+          onSellerSelect(seller.id);
+        }
+      });
+
+      markersRef.current.push(sellerMarker);
+    });
+  }, [sellers, loading, userLocation, onSellerSelect]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -217,7 +204,7 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
         <div ref={mapContainer} className="w-full h-full rounded-lg border shadow-lg" />
         
         {sellers.length === 0 && !loading && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border z-10">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border z-[1000]">
             <p className="text-sm text-muted-foreground">
               No sellers found with location data
             </p>
@@ -226,7 +213,7 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
       </div>
       
       {selectedSeller && (
-        <Card className="absolute top-4 right-4 p-4 max-w-xs shadow-xl">
+        <Card className="absolute top-4 right-4 p-4 max-w-xs shadow-xl z-[1000]">
           <div className="flex items-start justify-between mb-2">
             <div>
               <h3 className="font-semibold text-lg">{selectedSeller.full_name}</h3>
@@ -256,7 +243,7 @@ const MapView = ({ userLocation, onSellerSelect }: MapViewProps) => {
         </Card>
       )}
 
-      <div className="absolute bottom-4 left-4 bg-card p-3 rounded-lg shadow-lg border">
+      <div className="absolute bottom-4 left-4 bg-card p-3 rounded-lg shadow-lg border z-[1000]">
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded-full bg-primary border-2 border-white"></div>
