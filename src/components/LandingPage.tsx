@@ -71,6 +71,11 @@ const LandingPage = () => {
       title: "Dedicated Support",
       description: "Experience world-class customer service with a team ready to assist you at every step, ensuring your satisfaction is always our top priority.",
     },
+    {
+      icon: ShoppingBag,
+      title: "Wide Product Selection",
+      description: "Browse through thousands of products from fresh produce to pantry essentials, all curated for quality and delivered with care to your doorstep.",
+    },
   ];
 
   const handleSubscribe = (e: React.FormEvent) => {
@@ -83,7 +88,7 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 shadow-lg border-b border-slate-700">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-hero shadow-lg border-b border-primary-dark/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Left Side - Logo */}
@@ -134,7 +139,7 @@ const LandingPage = () => {
             {/* Right Side - Auth Buttons (Desktop) */}
             <div className="hidden md:flex items-center space-x-4">
               <Link to="/auth">
-                <Button variant="ghost" className="text-white hover:text-primary hover:bg-slate-800">
+                <Button variant="ghost" className="text-white hover:text-primary hover:bg-white/10">
                   Login
                 </Button>
               </Link>
@@ -154,9 +159,9 @@ const LandingPage = () => {
             </button>
           </div>
 
-          {/* Mobile Menu */}
+            {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden pb-4 space-y-3 border-t border-slate-700 pt-4">
+            <div className="md:hidden pb-4 space-y-3 border-t border-primary-dark/30 pt-4">
               <a
                 href="#home"
                 className="block text-white hover:text-primary transition-colors py-2"
@@ -192,7 +197,7 @@ const LandingPage = () => {
               </a>
               <div className="flex flex-col space-y-2 pt-2">
                 <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="ghost" className="w-full text-white hover:text-primary hover:bg-slate-800">
+                  <Button variant="ghost" className="w-full text-white hover:text-primary hover:bg-white/10">
                     Login
                   </Button>
                 </Link>
@@ -208,7 +213,7 @@ const LandingPage = () => {
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="pt-16 md:pt-20 min-h-screen flex items-center bg-gradient-hero relative overflow-hidden">
+      <section id="home" className="pt-32 md:pt-40 min-h-screen flex items-center bg-gradient-hero relative overflow-hidden">
         {/* Decorative background elements */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-10 w-32 h-32 border-2 border-primary rounded-full" />
@@ -241,7 +246,7 @@ const LandingPage = () => {
                 <Button 
                   size="lg" 
                   variant="outline"
-                  className="border-2 border-white text-white hover:bg-white hover:text-primary-dark text-lg px-8 py-6"
+                  className="border-2 border-white/80 bg-transparent text-white hover:bg-white hover:text-primary-dark hover:border-white text-lg px-8 py-6 shadow-lg"
                 >
                   Learn More
                 </Button>
@@ -334,7 +339,7 @@ const LandingPage = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
             {whyChooseUs.map((feature, index) => (
               <Card
                 key={index}
@@ -358,7 +363,7 @@ const LandingPage = () => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gradient-footer text-white py-16 border-t border-slate-700">
+      <footer className="bg-gradient-hero text-white py-16 border-t border-primary-dark/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-3 gap-12 mb-12">
             {/* Left Side - Subscription */}
@@ -366,7 +371,7 @@ const LandingPage = () => {
               <h3 className="text-2xl font-bold">
                 Stay in the Loop with <span className="text-primary">LiveMart</span>
               </h3>
-              <p className="text-gray-300 leading-relaxed">
+              <p className="text-white/80 leading-relaxed">
                 Get exclusive offers, new product alerts, and fresh recipes delivered weekly. No spam, just good food vibes!
               </p>
               <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3">
@@ -375,7 +380,7 @@ const LandingPage = () => {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-slate-800 border-slate-700 text-white placeholder:text-gray-400 focus:border-primary focus:ring-primary"
+                  className="bg-white/10 backdrop-blur-sm border-white/20 text-white placeholder:text-gray-300 focus:border-primary focus:ring-primary"
                   required
                 />
                 <Button
@@ -389,26 +394,26 @@ const LandingPage = () => {
             </div>
 
             {/* Middle - Social Media */}
-            <div className="flex flex-col items-center md:items-start justify-center space-y-4">
+            <div className="flex flex-col items-center justify-center space-y-4">
               <h4 className="text-xl font-semibold mb-2">Connect With Us</h4>
               <div className="flex space-x-4">
                 <a
                   href="#"
-                  className="w-12 h-12 rounded-lg bg-slate-800 hover:bg-primary transition-colors flex items-center justify-center border border-slate-700 hover:border-primary"
+                  className="w-12 h-12 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-primary transition-colors flex items-center justify-center border border-white/20 hover:border-primary"
                   aria-label="Instagram"
                 >
                   <Instagram className="h-5 w-5" />
                 </a>
                 <a
                   href="#"
-                  className="w-12 h-12 rounded-lg bg-slate-800 hover:bg-primary transition-colors flex items-center justify-center border border-slate-700 hover:border-primary"
+                  className="w-12 h-12 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-primary transition-colors flex items-center justify-center border border-white/20 hover:border-primary"
                   aria-label="Twitter"
                 >
                   <Twitter className="h-5 w-5" />
                 </a>
                 <a
                   href="#"
-                  className="w-12 h-12 rounded-lg bg-slate-800 hover:bg-primary transition-colors flex items-center justify-center border border-slate-700 hover:border-primary"
+                  className="w-12 h-12 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-primary transition-colors flex items-center justify-center border border-white/20 hover:border-primary"
                   aria-label="Facebook"
                 >
                   <Facebook className="h-5 w-5" />
@@ -424,21 +429,21 @@ const LandingPage = () => {
                   Live<span className="text-primary">Mart</span>
                 </span>
               </div>
-              <p className="text-gray-300 leading-relaxed max-w-xs">
+              <p className="text-white/80 leading-relaxed max-w-xs">
                 LiveMart: Freshness, Delivered. Built with love for healthy living.
               </p>
             </div>
           </div>
 
           {/* Bottom Bar */}
-          <div className="border-t border-slate-700 pt-8 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <p className="text-gray-400 text-sm">
+          <div className="border-t border-white/20 pt-8 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+            <p className="text-white/70 text-sm">
               © 2024 LiveMart. All rights reserved.
             </p>
-            <p className="text-gray-400 text-sm">
+            <p className="text-white/70 text-sm">
               Made with <span className="text-primary">💚</span> for local communities.
             </p>
-          </div>
+              </div>
         </div>
       </footer>
     </div>
