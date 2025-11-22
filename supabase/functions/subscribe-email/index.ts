@@ -21,13 +21,15 @@ function isValidEmail(email: string): boolean {
 // Send welcome email using Resend email service
 async function sendWelcomeEmail(email: string, supabaseClient: any): Promise<boolean> {
   try {
-    const emailSubject = "Welcome to LiveMart Alerts & Notifications!";
+    const emailSubject = "Welcome to LiveMart - You're Subscribed!";
     const emailBody = `
 Hi there,
 
-You are now successfully subscribed to receive the latest updates, special offers, and news from LiveMart.
+You are now successfully subscribed to LiveMart!
 
-To stop receiving these alerts at any time, simply reply to this email with the word "UNSUBSCRIBE" in the subject or body.
+You will receive all the latest updates, special offers, new product alerts, and fresh recipes delivered directly to your inbox.
+
+To cancel your subscription at any time, simply reply to this email with the word "UNSUBSCRIBE" in the subject or body.
 
 Thank you for joining the LiveMart community!
 
