@@ -12,6 +12,7 @@ import { useUserLocation } from "@/hooks/useUserLocation";
 import { LocationPermission } from "@/components/LocationPermission";
 import MapView from "@/components/MapView";
 import NotificationBell from "@/components/NotificationBell";
+import { reverseGeocode, type AddressComponents } from "@/lib/reverseGeocode";
 
 interface CustomerDashboardProps {
   user: User;
@@ -211,16 +212,41 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
           <LocationPermission 
             onLocationGranted={async (lat, lng) => {
               try {
-                // Optionally save location to user profile for future use
+                // Get address components
+                const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
+                let addressComponents: AddressComponents | null = null;
+                
+                if (apiKey) {
+                  try {
+                    addressComponents = await reverseGeocode(lat, lng, apiKey);
+                  } catch (error) {
+                    console.error('Reverse geocoding failed:', error);
+                  }
+                }
+
+                // Save location to user profile for future use
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
+                  const updateData: any = {
+                    location_lat: lat,
+                    location_lng: lng,
+                  };
+
+                  // Add address components if available
+                  if (addressComponents) {
+                    updateData.location_address = addressComponents.formatted_address;
+                    updateData.location_area = addressComponents.area || null;
+                    updateData.location_city = addressComponents.city || null;
+                    updateData.location_district = addressComponents.district || null;
+                    updateData.location_state = addressComponents.state || null;
+                    updateData.location_country = addressComponents.country || null;
+                    updateData.location_pincode = addressComponents.pincode || null;
+                  }
+
                   // Save location to profile (non-blocking)
                   supabase
                     .from('profiles')
-                    .update({
-                      location_lat: lat,
-                      location_lng: lng,
-                    })
+                    .update(updateData)
                     .eq('id', user.id)
                     .then(() => {
                       console.log('Location saved to profile');
@@ -233,7 +259,14 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
                 // Refetch location to update state
                 await refetchLocation();
                 setShowLocationBanner(false);
-                toast.success("Location enabled! You can now see nearby shops");
+                
+                // Show success message with location details
+                if (addressComponents?.city || addressComponents?.state) {
+                  const locationParts = [addressComponents.area, addressComponents.city, addressComponents.state, addressComponents.pincode].filter(Boolean);
+                  toast.success(`Location enabled! ${locationParts.length > 0 ? locationParts.join(', ') : 'You can now see nearby shops'}`);
+                } else {
+                  toast.success("Location enabled! You can now see nearby shops");
+                }
               } catch (error) {
                 console.error('Failed to update location:', error);
                 toast.error("Failed to update location. Please try again.");

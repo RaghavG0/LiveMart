@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Loader2, MapPin } from "lucide-react";
+import { reverseGeocode, type AddressComponents } from "@/lib/reverseGeocode";
 
 interface LocationPickerProps {
   initialLat?: number | null;
   initialLng?: number | null;
-  onLocationSelect: (lat: number, lng: number, address: string) => void;
+  onLocationSelect: (lat: number, lng: number, address: string, addressComponents?: AddressComponents) => void;
   apiKey: string;
 }
 
@@ -24,6 +25,7 @@ export const LocationPicker = ({
     lat: number;
     lng: number;
     address: string;
+    addressComponents?: AddressComponents;
   } | null>(null);
 
   useEffect(() => {
@@ -68,12 +70,12 @@ export const LocationPicker = ({
         // Handle marker drag end
         marker.on("dragend", async () => {
           const lngLat = marker.getLngLat();
-          await reverseGeocode(lngLat.lat, lngLat.lng);
+          await handleReverseGeocode(lngLat.lat, lngLat.lng);
         });
 
         // Initial reverse geocode
         if (initialLat && initialLng) {
-          await reverseGeocode(initialLat, initialLng);
+          await handleReverseGeocode(initialLat, initialLng);
         }
 
         setLoading(false);
@@ -92,16 +94,16 @@ export const LocationPicker = ({
     };
   }, [apiKey, initialLat, initialLng]);
 
-  const reverseGeocode = async (lat: number, lng: number) => {
+  const handleReverseGeocode = async (lat: number, lng: number) => {
     try {
-      const response = await fetch(
-        `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${lng}&api_key=${apiKey}`
-      );
-      const data = await response.json();
+      const addressComponents = await reverseGeocode(lat, lng, apiKey);
       
-      const address = data.results?.[0]?.formatted_address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      
-      setSelectedLocation({ lat, lng, address });
+      setSelectedLocation({ 
+        lat, 
+        lng, 
+        address: addressComponents.formatted_address,
+        addressComponents 
+      });
     } catch (error) {
       console.error("Reverse geocode failed:", error);
       setSelectedLocation({ 
@@ -117,7 +119,8 @@ export const LocationPicker = ({
       onLocationSelect(
         selectedLocation.lat,
         selectedLocation.lng,
-        selectedLocation.address
+        selectedLocation.address,
+        selectedLocation.addressComponents
       );
     }
   };
@@ -146,6 +149,19 @@ export const LocationPicker = ({
               <p className="text-xs text-muted-foreground mt-1">
                 {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
               </p>
+              {selectedLocation.addressComponents && (
+                <div className="mt-2 pt-2 border-t border-border">
+                  <p className="text-xs font-medium mb-1">Address Details:</p>
+                  <div className="grid grid-cols-2 gap-1 text-xs">
+                    {selectedLocation.addressComponents.area && <p><span className="font-medium">Area:</span> {selectedLocation.addressComponents.area}</p>}
+                    {selectedLocation.addressComponents.city && <p><span className="font-medium">City:</span> {selectedLocation.addressComponents.city}</p>}
+                    {selectedLocation.addressComponents.district && <p><span className="font-medium">District:</span> {selectedLocation.addressComponents.district}</p>}
+                    {selectedLocation.addressComponents.state && <p><span className="font-medium">State:</span> {selectedLocation.addressComponents.state}</p>}
+                    {selectedLocation.addressComponents.country && <p><span className="font-medium">Country:</span> {selectedLocation.addressComponents.country}</p>}
+                    {selectedLocation.addressComponents.pincode && <p><span className="font-medium">Pincode:</span> {selectedLocation.addressComponents.pincode}</p>}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <Button onClick={handleConfirm} className="w-full">

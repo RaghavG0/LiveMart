@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowLeft, User as UserIcon, Save, LogOut, MapPin, Navigation } from "lucide-react";
+import { ArrowLeft, User as UserIcon, Save, LogOut, MapPin, Navigation, RefreshCw } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { LocationPicker } from "@/components/LocationPicker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import MyReviews from "@/components/feedback/MyReviews";
+import { reverseGeocode, type AddressComponents } from "@/lib/reverseGeocode";
 
 interface Profile {
   full_name: string;
@@ -19,6 +20,12 @@ interface Profile {
   location_address: string | null;
   location_lat: number | null;
   location_lng: number | null;
+  location_area: string | null;
+  location_city: string | null;
+  location_district: string | null;
+  location_state: string | null;
+  location_country: string | null;
+  location_pincode: string | null;
 }
 
 const Account = () => {
@@ -31,6 +38,12 @@ const Account = () => {
     location_address: null,
     location_lat: null,
     location_lng: null,
+    location_area: null,
+    location_city: null,
+    location_district: null,
+    location_state: null,
+    location_country: null,
+    location_pincode: null,
   });
   const [userRole, setUserRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -86,7 +99,7 @@ const Account = () => {
     }
   };
 
-  const handleCaptureCurrentLocation = async () => {
+  const handleCaptureCurrentLocation = async (attempt: number = 1) => {
     if (!("geolocation" in navigator)) {
       toast.error("Geolocation is not supported by your browser");
       return;
@@ -112,8 +125,16 @@ const Account = () => {
     }
 
     setCapturingLocation(true);
-    toast.info("Requesting location access...");
+    if (attempt === 1) {
+      toast.info("Requesting location access...");
+    }
     
+    const geoOptions: PositionOptions = {
+      enableHighAccuracy: attempt === 1, // Try high accuracy first, then fallback
+      timeout: attempt === 1 ? 20000 : 15000,
+      maximumAge: attempt === 1 ? 0 : 300000
+    };
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const lat = position.coords.latitude;
@@ -121,27 +142,41 @@ const Account = () => {
 
         console.log('Location captured:', { lat, lng, accuracy: position.coords.accuracy });
 
-        // Reverse geocode to get address
+        // Reverse geocode to get address components
         try {
           const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
           if (!apiKey) {
             throw new Error('Maps API key not configured');
           }
 
-          const response = await fetch(
-            `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${lng}&api_key=${apiKey}`
-          );
-          const data = await response.json();
-          const address = data.results?.[0]?.formatted_address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          const addressComponents: AddressComponents = await reverseGeocode(lat, lng, apiKey);
 
           setProfile({
             ...profile,
             location_lat: lat,
             location_lng: lng,
-            location_address: address,
+            location_address: addressComponents.formatted_address,
+            location_area: addressComponents.area || null,
+            location_city: addressComponents.city || null,
+            location_district: addressComponents.district || null,
+            location_state: addressComponents.state || null,
+            location_country: addressComponents.country || null,
+            location_pincode: addressComponents.pincode || null,
           });
 
-          toast.success(`Location captured: ${address}`);
+          // Build display address
+          const addressParts = [
+            addressComponents.area,
+            addressComponents.city,
+            addressComponents.district,
+            addressComponents.state,
+            addressComponents.pincode,
+          ].filter(Boolean);
+          const displayAddress = addressParts.length > 0 
+            ? addressParts.join(', ')
+            : addressComponents.formatted_address;
+
+          toast.success(`Location captured: ${displayAddress}`);
         } catch (error) {
           console.error('Reverse geocoding failed:', error);
           setProfile({
@@ -156,6 +191,15 @@ const Account = () => {
       },
       (error) => {
         console.error("Geolocation error:", error);
+        
+        // Retry up to 2 times with different settings
+        if (attempt < 3 && error.code !== error.PERMISSION_DENIED) {
+          setTimeout(() => {
+            handleCaptureCurrentLocation(attempt + 1);
+          }, 1000 * attempt); // Exponential backoff
+          return;
+        }
+
         let errorMessage = "Unable to get your location. ";
         let instruction = "";
         
@@ -183,11 +227,7 @@ const Account = () => {
         });
         setCapturingLocation(false);
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      }
+      geoOptions
     );
   };
 
@@ -219,13 +259,57 @@ const Account = () => {
     }
   };
 
-  const handleLocationSelect = (lat: number, lng: number, address: string) => {
-    setProfile({
-      ...profile,
-      location_lat: lat,
-      location_lng: lng,
-      location_address: address,
-    });
+  const handleLocationSelect = async (lat: number, lng: number, address: string, addressComponents?: AddressComponents) => {
+    if (addressComponents) {
+      // Use address components from LocationPicker
+      setProfile({
+        ...profile,
+        location_lat: lat,
+        location_lng: lng,
+        location_address: addressComponents.formatted_address || address,
+        location_area: addressComponents.area || null,
+        location_city: addressComponents.city || null,
+        location_district: addressComponents.district || null,
+        location_state: addressComponents.state || null,
+        location_country: addressComponents.country || null,
+        location_pincode: addressComponents.pincode || null,
+      });
+    } else {
+      // Fallback: Get address components if not provided
+      try {
+        const apiKey = import.meta.env.VITE_OLA_MAPS_API_KEY;
+        if (apiKey) {
+          const components: AddressComponents = await reverseGeocode(lat, lng, apiKey);
+          setProfile({
+            ...profile,
+            location_lat: lat,
+            location_lng: lng,
+            location_address: components.formatted_address || address,
+            location_area: components.area || null,
+            location_city: components.city || null,
+            location_district: components.district || null,
+            location_state: components.state || null,
+            location_country: components.country || null,
+            location_pincode: components.pincode || null,
+          });
+        } else {
+          setProfile({
+            ...profile,
+            location_lat: lat,
+            location_lng: lng,
+            location_address: address,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to get address components:', error);
+        setProfile({
+          ...profile,
+          location_lat: lat,
+          location_lng: lng,
+          location_address: address,
+        });
+      }
+    }
     setLocationDialogOpen(false);
     toast.success("Location updated");
   };
@@ -243,6 +327,12 @@ const Account = () => {
           location_address: profile.location_address,
           location_lat: profile.location_lat,
           location_lng: profile.location_lng,
+          location_area: profile.location_area,
+          location_city: profile.location_city,
+          location_district: profile.location_district,
+          location_state: profile.location_state,
+          location_country: profile.location_country,
+          location_pincode: profile.location_pincode,
         })
         .eq("id", user.id);
 
@@ -427,20 +517,33 @@ const Account = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={handleCaptureCurrentLocation}
+                    onClick={() => handleCaptureCurrentLocation(1)}
                     disabled={capturingLocation}
                   >
                     {capturingLocation ? (
-                      <Navigation className="h-4 w-4 animate-pulse" />
+                      <RefreshCw className="h-4 w-4 animate-spin" />
                     ) : (
                       <Navigation className="h-4 w-4" />
                     )}
                   </Button>
                 </div>
                 {profile.location_lat && profile.location_lng && (
-                  <p className="text-xs text-muted-foreground">
-                    Coordinates: {profile.location_lat.toFixed(6)}, {profile.location_lng.toFixed(6)}
-                  </p>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>Coordinates: {profile.location_lat.toFixed(6)}, {profile.location_lng.toFixed(6)}</p>
+                    {(profile.location_area || profile.location_city || profile.location_state || profile.location_pincode) && (
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <p className="font-medium text-foreground mb-1">Address Details:</p>
+                        <div className="grid grid-cols-2 gap-1">
+                          {profile.location_area && <p><span className="font-medium">Area:</span> {profile.location_area}</p>}
+                          {profile.location_city && <p><span className="font-medium">City:</span> {profile.location_city}</p>}
+                          {profile.location_district && <p><span className="font-medium">District:</span> {profile.location_district}</p>}
+                          {profile.location_state && <p><span className="font-medium">State:</span> {profile.location_state}</p>}
+                          {profile.location_country && <p><span className="font-medium">Country:</span> {profile.location_country}</p>}
+                          {profile.location_pincode && <p><span className="font-medium">Pincode:</span> {profile.location_pincode}</p>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
