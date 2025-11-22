@@ -112,16 +112,16 @@ export const ProductList = ({ onEdit, onAdd, refreshTrigger }: ProductListProps)
 
   return (
     <>
-      <Card>
+      <Card className="border border-gray-200 bg-white shadow-md">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Product Inventory</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-gray-900">Product Inventory</CardTitle>
+              <CardDescription className="text-gray-600">
                 Manage your products and inventory levels
               </CardDescription>
             </div>
-            <Button onClick={onAdd}>
+            <Button onClick={onAdd} className="bg-primary hover:bg-primary/90 text-white">
               <Plus className="h-4 w-4 mr-2" />
               Add Product
             </Button>
@@ -133,7 +133,7 @@ export const ProductList = ({ onEdit, onAdd, refreshTrigger }: ProductListProps)
               <p className="text-muted-foreground mb-4">
                 No products yet. Start by adding your first product.
               </p>
-              <Button onClick={onAdd}>
+              <Button onClick={onAdd} className="bg-primary hover:bg-primary/90 text-white">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Product
               </Button>
@@ -177,7 +177,7 @@ export const ProductList = ({ onEdit, onAdd, refreshTrigger }: ProductListProps)
                     </TableCell>
                     <TableCell>
                       {product.is_available ? (
-                        <Badge variant="default" className="bg-success">Available</Badge>
+                        <Badge variant="default" className="bg-primary text-white">Available</Badge>
                       ) : (
                         <Badge variant="secondary">
                           {product.availability_date

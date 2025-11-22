@@ -45,9 +45,9 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
   };
 
   return (
-    <Card className="sticky top-4">
+    <Card className="sticky top-4 border border-gray-200 bg-white shadow-md">
       <CardHeader>
-        <CardTitle className="text-lg">Filters</CardTitle>
+        <CardTitle className="text-lg text-gray-900">Filters</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Price Range */}

@@ -432,7 +432,7 @@ const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow border border-gray-200 hover:border-primary bg-white">
       <div className="relative h-48 bg-muted">
         {product.image_url ? (
           <img
@@ -494,7 +494,7 @@ const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
       </CardContent>
       <CardFooter>
         <Button
-          className="w-full"
+          className="w-full bg-primary hover:bg-primary/90 text-white"
           onClick={() => onAddToCart(product, quantity)}
           disabled={product.stock_quantity === 0}
         >

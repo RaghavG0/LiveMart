@@ -271,7 +271,7 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
       {products.map((product) => (
         <Card 
           key={product.id} 
-          className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+          className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer border border-gray-200 hover:border-primary bg-white"
           onClick={() => navigate(`/product/${product.id}`)}
         >
           <div className="relative h-48 bg-muted">
@@ -344,7 +344,7 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
           </CardContent>
           <CardFooter>
             <Button
-              className="w-full"
+              className="w-full bg-primary hover:bg-primary/90 text-white"
               onClick={(e) => {
                 e.stopPropagation();
                 handleAddToCart(product.id);

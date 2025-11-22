@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, Plus, Package, TrendingUp, CheckCircle, User as UserIcon, ShoppingBag, AlertTriangle, Users, Download, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProductForm } from "@/components/products/ProductForm";
@@ -172,23 +172,33 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
   }, [user.id]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-card shadow-md border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Live MART - Wholesaler Portal
-            </h1>
+      <header className="bg-gradient-hero shadow-lg border-b border-primary-dark/30">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 md:h-20">
+            {/* Left Side - Logo */}
+            <Link to="/" className="flex items-center space-x-2 group">
+              <div className="relative">
+                <ShoppingBag className="h-8 w-8 md:h-10 md:w-10 text-white transition-transform group-hover:scale-110" />
+                <div className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full animate-pulse" />
+              </div>
+              <span className="text-xl md:text-2xl font-bold text-white">
+                Live<span className="text-primary">Mart</span>
+                <span className="text-sm md:text-base ml-2 text-white/80">- Wholesaler</span>
+              </span>
+            </Link>
+            
+            {/* Right Side - Action Buttons */}
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/seller-orders")} title="Manage Orders">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/seller-orders")} title="Manage Orders" className="text-white hover:text-primary hover:bg-white/10">
                 <ShoppingBag className="h-5 w-5" />
               </Button>
               <NotificationBell />
-              <Button variant="ghost" size="icon" onClick={() => navigate("/account")} title="Account Settings">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/account")} title="Account Settings" className="text-white hover:text-primary hover:bg-white/10">
                 <UserIcon className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out">
+              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out" className="text-white hover:text-primary hover:bg-white/10">
                 <LogOut className="h-5 w-5" />
               </Button>
             </div>
@@ -197,42 +207,42 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Wholesaler Dashboard</h2>
-          <p className="text-muted-foreground">Manage your bulk inventory and retailer orders</p>
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 bg-white">
+        <div className="mb-6 md:mb-8">
+          <h2 className="text-2xl md:text-3xl font-bold mb-2 text-gray-900">Wholesaler Dashboard</h2>
+          <p className="text-gray-600">Manage your bulk inventory and retailer orders</p>
         </div>
 
         <LocationStatusBanner show={hasLocation === false && !locationLoading} />
 
         <Tabs defaultValue="inventory" className="space-y-6">
           <div className="flex items-center justify-between mb-4">
-            <TabsList className="grid w-full max-w-4xl grid-cols-7">
-              <TabsTrigger value="inventory">
+            <TabsList className="grid w-full max-w-4xl grid-cols-7 bg-gray-100">
+              <TabsTrigger value="inventory" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Package className="h-4 w-4 mr-2" />
                 Inventory
               </TabsTrigger>
-              <TabsTrigger value="analytics">
+              <TabsTrigger value="analytics" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Analytics
               </TabsTrigger>
-              <TabsTrigger value="alerts">
+              <TabsTrigger value="alerts" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                 <AlertTriangle className="h-4 w-4 mr-2" />
                 Alerts
               </TabsTrigger>
-              <TabsTrigger value="insights">
+              <TabsTrigger value="insights" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Users className="h-4 w-4 mr-2" />
                 Insights
               </TabsTrigger>
-              <TabsTrigger value="orders">
+              <TabsTrigger value="orders" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                 <TrendingUp className="h-4 w-4 mr-2" />
                 Order Flow
               </TabsTrigger>
-              <TabsTrigger value="feedback">
+              <TabsTrigger value="feedback" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Legacy View
               </TabsTrigger>
-              <TabsTrigger value="retailers">
+              <TabsTrigger value="retailers" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                 <ShoppingBag className="h-4 w-4 mr-2" />
                 History
               </TabsTrigger>
