@@ -140,13 +140,28 @@ serve(async (req) => {
       .from('subscribers')
       .select('id, email, is_active')
       .eq('email', normalizedEmail)
-      .single();
+      .maybeSingle(); // Use maybeSingle() instead of single() to handle no rows gracefully
 
-    if (checkError && checkError.code !== 'PGRST116') {
-      // PGRST116 is "not found" error, which is expected for new emails
-      console.error('Error checking existing subscriber:', checkError);
+    if (checkError) {
+      // Log the full error for debugging
+      console.error('Error checking existing subscriber:', JSON.stringify(checkError, null, 2));
+      
+      // Check if the table doesn't exist
+      if (checkError.code === '42P01' || checkError.message?.includes('relation') || checkError.message?.includes('does not exist')) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Database table not found. Please run the migration to create the subscribers table.',
+            details: 'Run: supabase db push or apply migration 20251121120000_create_subscribers_table.sql'
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'Failed to check subscription status' }),
+        JSON.stringify({ 
+          error: 'Failed to check subscription status',
+          details: checkError.message 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -205,18 +220,35 @@ serve(async (req) => {
       .single();
 
     if (insertError) {
-      console.error('Error inserting subscriber:', insertError);
+      console.error('Error inserting subscriber:', JSON.stringify(insertError, null, 2));
       
       // Handle unique constraint violation (race condition)
       if (insertError.code === '23505') {
         return new Response(
-          JSON.stringify({ message: 'You are already subscribed!' }),
+          JSON.stringify({ 
+            message: 'You are already subscribed!',
+            already_subscribed: true 
+          }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
+      // Check if the table doesn't exist
+      if (insertError.code === '42P01' || insertError.message?.includes('relation') || insertError.message?.includes('does not exist')) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Database table not found. Please run the migration to create the subscribers table.',
+            details: 'Run: supabase db push or apply migration 20251121120000_create_subscribers_table.sql'
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       return new Response(
-        JSON.stringify({ error: 'Failed to create subscription' }),
+        JSON.stringify({ 
+          error: 'Failed to create subscription',
+          details: insertError.message 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -241,8 +273,14 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('Error in subscribe-email function:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ 
+        error: error.message || 'Internal server error',
+        details: error.stack || 'An unexpected error occurred'
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

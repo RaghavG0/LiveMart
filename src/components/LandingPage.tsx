@@ -112,7 +112,24 @@ const LandingPage = () => {
 
       if (error) {
         console.error('Subscription error:', error);
-        toast.error(error.message || "Subscription failed. Please try again later.");
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        
+        // Provide more helpful error messages
+        let errorMessage = "Subscription failed. Please try again later.";
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (error.context?.msg) {
+          errorMessage = error.context.msg;
+        }
+        
+        // Check for specific error types
+        if (errorMessage.includes('table not found') || errorMessage.includes('does not exist')) {
+          errorMessage = "Database setup incomplete. Please contact support.";
+        } else if (errorMessage.includes('Edge Function')) {
+          errorMessage = "The subscription service is not available. Please try again later.";
+        }
+        
+        toast.error(errorMessage);
         return;
       }
 
@@ -121,7 +138,7 @@ const LandingPage = () => {
         if (data.already_subscribed) {
           toast.success("You are already subscribed!");
         } else if (data.message) {
-          toast.success("Success! You are now subscribed to LiveMart alerts.");
+          toast.success(data.message || "Success! You are now subscribed to LiveMart alerts.");
         } else {
           toast.success("Success! You are now subscribed to LiveMart alerts.");
         }
@@ -130,7 +147,16 @@ const LandingPage = () => {
       }
     } catch (error: any) {
       console.error('Subscription error:', error);
-      toast.error(error.message || "Subscription failed. Please try again later.");
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      
+      let errorMessage = "Subscription failed. Please try again later.";
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.error?.message) {
+        errorMessage = error.error.message;
+      }
+      
+      toast.error(errorMessage);
     }
   };
 
