@@ -19,7 +19,7 @@ interface CustomerDashboardProps {
 
 const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
   const navigate = useNavigate();
-  const { location, loading: locationLoading } = useUserLocation();
+  const { location, loading: locationLoading, refetch: refetchLocation } = useUserLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [maxPrice, setMaxPrice] = useState(1000);
   const [showLocationBanner, setShowLocationBanner] = useState(true);
@@ -209,9 +209,35 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
         {/* Location Permission Banner */}
         {!location && showLocationBanner && (
           <LocationPermission 
-            onLocationGranted={() => {
-              setShowLocationBanner(false);
-              toast.success("Location enabled! You can now see nearby shops");
+            onLocationGranted={async (lat, lng) => {
+              try {
+                // Optionally save location to user profile for future use
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                  // Save location to profile (non-blocking)
+                  supabase
+                    .from('profiles')
+                    .update({
+                      location_lat: lat,
+                      location_lng: lng,
+                    })
+                    .eq('id', user.id)
+                    .then(() => {
+                      console.log('Location saved to profile');
+                    })
+                    .catch((err) => {
+                      console.error('Failed to save location to profile:', err);
+                    });
+                }
+                
+                // Refetch location to update state
+                await refetchLocation();
+                setShowLocationBanner(false);
+                toast.success("Location enabled! You can now see nearby shops");
+              } catch (error) {
+                console.error('Failed to update location:', error);
+                toast.error("Failed to update location. Please try again.");
+              }
             }}
             onDismiss={() => setShowLocationBanner(false)}
           />
