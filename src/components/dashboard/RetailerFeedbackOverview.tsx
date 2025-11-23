@@ -299,6 +299,17 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
                             </Badge>
                           )}
                         </div>
+                        {/* Show latest review text preview */}
+                        {product.allReviews.length > 0 && product.allReviews[0].comment && (
+                          <div className="mt-2">
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              <span className="font-medium">{product.allReviews[0].customerName}:</span>{" "}
+                              {product.allReviews[0].comment.length > 150
+                                ? `${product.allReviews[0].comment.substring(0, 150)}...`
+                                : product.allReviews[0].comment}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <Button

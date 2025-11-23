@@ -207,7 +207,7 @@ const ProductReviewsModal = ({
                   </div>
                   
                   {review.comment && (
-                    <p className="text-sm mt-2 pl-10">{review.comment}</p>
+                    <p className="text-sm mt-2 pl-10 whitespace-pre-wrap break-words">{review.comment}</p>
                   )}
                 </div>
 

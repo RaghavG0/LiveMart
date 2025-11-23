@@ -220,7 +220,7 @@ const FeedbackList = ({ productId, className, refreshTrigger, onRefresh }: Feedb
                     </div>
                   </div>
                   {review.comment && (
-                    <p className="text-foreground leading-relaxed mt-2">
+                    <p className="text-foreground leading-relaxed mt-2 whitespace-pre-wrap break-words">
                       {review.comment}
                     </p>
                   )}
