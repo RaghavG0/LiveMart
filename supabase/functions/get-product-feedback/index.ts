@@ -13,11 +13,22 @@ serve(async (req) => {
   }
 
   try {
-    // Parse URL parameters
-    const url = new URL(req.url);
-    const productId = url.searchParams.get('productId');
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const limit = parseInt(url.searchParams.get('limit') || '10');
+    // Parse parameters from either POST body or URL query string
+    let productId: string | null;
+    let page: number;
+    let limit: number;
+
+    if (req.method === 'POST') {
+      const body = await req.json();
+      productId = body.productId || null;
+      page = parseInt(body.page || '1');
+      limit = parseInt(body.limit || '10');
+    } else {
+      const url = new URL(req.url);
+      productId = url.searchParams.get('productId');
+      page = parseInt(url.searchParams.get('page') || '1');
+      limit = parseInt(url.searchParams.get('limit') || '10');
+    }
 
     if (!productId) {
       return new Response(
@@ -59,7 +70,7 @@ serve(async (req) => {
         user_id,
         verified_buyer,
         products!inner(seller_id),
-        profiles!inner(full_name)
+        profiles(full_name)
       `, { count: 'exact' })
       .eq('product_id', productId)
       .order('created_at', { ascending: false })

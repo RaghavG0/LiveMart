@@ -390,14 +390,19 @@ const ProductDetail = () => {
               orderId={deliveredOrder?.orderId} // Optional - for verified buyer badge
               existingReview={existingReview || deliveredOrder?.existingReview || undefined}
               onSuccess={() => {
+                // Immediately refresh feedback list
                 setRefreshFeedback((prev) => prev + 1);
+                // Also refresh after a short delay to ensure data is saved
+                setTimeout(() => {
+                  setRefreshFeedback((prev) => prev + 1);
+                }, 500);
                 checkDeliveredOrder();
                 checkExistingReview();
               }}
             />
           )}
           
-          <FeedbackList key={refreshFeedback} productId={product.id} />
+          <FeedbackList key={refreshFeedback} productId={product.id} refreshTrigger={refreshFeedback} />
         </div>
 
         {similarProducts.length > 0 && (

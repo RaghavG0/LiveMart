@@ -29,9 +29,10 @@ interface FeedbackSummary {
 interface FeedbackListProps {
   productId: string;
   className?: string;
+  refreshTrigger?: number; // Add refresh trigger prop
 }
 
-const FeedbackList = ({ productId, className }: FeedbackListProps) => {
+const FeedbackList = ({ productId, className, refreshTrigger }: FeedbackListProps) => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [summary, setSummary] = useState<FeedbackSummary>({
     averageRating: 0,
@@ -63,7 +64,7 @@ const FeedbackList = ({ productId, className }: FeedbackListProps) => {
 
   useEffect(() => {
     fetchFeedback();
-  }, [productId, currentPage]);
+  }, [productId, currentPage, refreshTrigger]); // Add refreshTrigger to dependencies
 
   const fetchFeedback = async () => {
     try {
