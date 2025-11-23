@@ -18,6 +18,7 @@ import PendingInventoryOrders from "@/components/PendingInventoryOrders";
 import RetailerFeedbackOverview from "@/components/dashboard/RetailerFeedbackOverview";
 import OrderStatusManager from "@/components/dashboard/OrderStatusManager";
 import LowStockAlert from "@/components/alerts/LowStockAlert";
+import RevenueStats from "@/components/dashboard/RevenueStats";
 
 interface RetailerDashboardProps {
   user: User;
@@ -141,6 +142,9 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
         </div>
 
         <LocationStatusBanner show={hasLocation === false && !locationLoading} />
+
+        {/* Revenue Statistics */}
+        <RevenueStats sellerId={user.id} orderType="customer" />
 
         {/* Low Stock Alert */}
         <LowStockAlert 

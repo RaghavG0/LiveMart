@@ -25,6 +25,7 @@ import RetailerInsights from "@/components/dashboard/RetailerInsights";
 import WholesalerOrderFlow from "@/components/dashboard/WholesalerOrderFlow";
 import { exportSKUPerformance, exportComplaintLogs, exportCompleteReport } from "@/lib/exportUtils";
 import LowStockAlert from "@/components/alerts/LowStockAlert";
+import RevenueStats from "@/components/dashboard/RevenueStats";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -257,6 +258,9 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
         </div>
 
         <LocationStatusBanner show={hasLocation === false && !locationLoading} />
+
+        {/* Revenue Statistics */}
+        <RevenueStats sellerId={user.id} orderType="retailer" />
 
         {/* Low Stock Alert */}
         <LowStockAlert 

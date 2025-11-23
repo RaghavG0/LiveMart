@@ -72,17 +72,27 @@ const sendOrderStatusEmail = async (
     const GMAIL_CLIENT_SECRET = Deno.env.get("GMAIL_CLIENT_SECRET");
     const GMAIL_REFRESH_TOKEN = Deno.env.get("GMAIL_REFRESH_TOKEN");
 
-    if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) {
-      console.log("Missing Gmail OAuth credentials - skipping email notification");
-      return { success: false, error: "Email credentials not configured" };
+    // Check for Gmail credentials
+    const hasOAuthCredentials = !!(GMAIL_CLIENT_ID && GMAIL_CLIENT_SECRET && GMAIL_REFRESH_TOKEN);
+    
+    if (!hasOAuthCredentials) {
+      console.error("❌ Missing Gmail OAuth credentials:", {
+        hasClientId: !!GMAIL_CLIENT_ID,
+        hasClientSecret: !!GMAIL_CLIENT_SECRET,
+        hasRefreshToken: !!GMAIL_REFRESH_TOKEN,
+        hasGmailUser: !!GMAIL_USER
+      });
+      return { success: false, error: "Email credentials not configured. Please set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REFRESH_TOKEN environment variables." };
     }
 
     // Get access token
+    console.log("🔄 Attempting to get access token from refresh token...");
     const accessToken = await getAccessTokenFromRefreshToken();
     if (!accessToken) {
-      console.error('❌ Failed to obtain access token');
-      return { success: false, error: "Failed to obtain access token" };
+      console.error('❌ Failed to obtain access token from refresh token');
+      return { success: false, error: "Failed to obtain access token. Please check Gmail OAuth credentials." };
     }
+    console.log("✓ Access token obtained successfully");
 
     // Status colors
     const statusColors: Record<string, { bg: string; text: string; icon: string }> = {
@@ -190,6 +200,7 @@ const sendOrderStatusEmail = async (
       .replace(/\//g, '_')
       .replace(/=+$/, '');
     
+    console.log(`📧 Sending email to ${toEmail}...`);
     const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
       method: 'POST',
       headers: {
@@ -203,19 +214,37 @@ const sendOrderStatusEmail = async (
     
     if (response.ok) {
       const responseData = await response.json();
-      console.log(`✓ Order status email sent to ${toEmail}. Message ID: ${responseData.id}`);
+      console.log(`✓ Order status email sent successfully to ${toEmail}. Message ID: ${responseData.id}`);
       return { success: true };
     } else {
       const errorText = await response.text();
-      console.error('❌ Gmail API error:', {
-        status: response.status,
-        error: errorText,
-      });
-      return { success: false, error: `Gmail API error: ${response.status}` };
+      let errorMessage = `Gmail API error: ${response.status}`;
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error?.message || errorMessage;
+        console.error('❌ Gmail API error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        });
+      } catch (e) {
+        console.error('❌ Gmail API error (raw):', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText.substring(0, 500), // Limit log size
+        });
+      }
+      
+      return { success: false, error: errorMessage };
     }
   } catch (error: any) {
-    console.error('❌ Error sending order status email:', error);
-    return { success: false, error: error.message };
+    console.error('❌ Exception sending order status email:', {
+      message: error.message,
+      stack: error.stack?.substring(0, 500),
+      name: error.name,
+    });
+    return { success: false, error: error.message || "Unknown error sending email" };
   }
 };
 
@@ -358,14 +387,31 @@ serve(async (req) => {
           .eq('id', buyerId)
           .single();
 
-        // Get email from auth.users
-        const { data: authUserData, error: authError } = await supabaseServiceClient.auth.admin.getUserById(buyerId);
+        // Get email from auth.users using service role client
+        let buyerEmail: string | null = null;
+        let buyerName: string = 'Customer';
 
-        if (!authError && authUserData?.user?.email) {
-          const buyerEmail = authUserData.user.email;
-          const buyerName = profileData?.full_name || buyerEmail.split('@')[0] || 'Customer';
+        try {
+          const { data: authUserData, error: authError } = await supabaseServiceClient.auth.admin.getUserById(buyerId);
           
-          // Construct tracking link (you may need to adjust this based on your domain)
+          if (authError) {
+            console.error('❌ Error fetching auth user:', authError.message);
+            // Try alternative: get email from profiles table if it exists
+            if (profileData) {
+              buyerName = profileData.full_name || 'Customer';
+            }
+          } else if (authUserData?.user?.email) {
+            buyerEmail = authUserData.user.email;
+            buyerName = profileData?.full_name || buyerEmail.split('@')[0] || 'Customer';
+          } else {
+            console.warn('⚠ No email found for user:', buyerId);
+          }
+        } catch (authErr: any) {
+          console.error('❌ Exception fetching buyer email:', authErr.message || authErr);
+        }
+
+        if (buyerEmail) {
+          // Construct tracking link
           const baseUrl = Deno.env.get('SITE_URL') || 'https://your-domain.com';
           const trackingLink = `${baseUrl}/order-tracking/${orderId}`;
 
@@ -385,10 +431,12 @@ serve(async (req) => {
           if (emailSent) {
             console.log(`✓ Email notification sent to buyer: ${buyerEmail}`);
           } else {
-            console.warn(`⚠ Email notification failed: ${emailError}`);
+            console.error(`❌ Email notification failed: ${emailError}`);
+            emailError = emailError || 'Unknown error sending email';
           }
         } else {
-          console.warn('⚠ Could not fetch buyer email:', authError?.message);
+          emailError = 'Buyer email not found';
+          console.warn('⚠ Could not send email: Buyer email not found for user:', buyerId);
         }
       }
     } catch (emailException: any) {
