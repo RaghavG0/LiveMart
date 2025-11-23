@@ -48,41 +48,85 @@ export const ReviewReplies = ({ reviewId, productSellerId, currentUserId }: Revi
   const fetchReplies = async () => {
     try {
       setLoading(true);
-      // Fetch replies with both user and seller profiles
-      const { data, error } = await supabase
+      console.log("Fetching replies for reviewId:", reviewId);
+      
+      // Fetch replies with proper profile joins
+      // First, get all replies for this review
+      const { data: repliesData, error: repliesError } = await supabase
         .from("review_replies")
-        .select(`
-          *,
-          user_profiles:user_id (
-            full_name,
-            avatar_url
-          ),
-          seller_profiles:seller_id (
-            full_name,
-            avatar_url
-          )
-        `)
+        .select("*")
         .eq("review_id", reviewId)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
+      if (repliesError) {
+        console.error("Error fetching replies:", repliesError);
+        throw repliesError;
+      }
+
+      if (!repliesData || repliesData.length === 0) {
+        console.log("No replies found for reviewId:", reviewId);
+        setReplies([]);
+        return;
+      }
+
+      // Fetch profiles for all user_ids and seller_ids
+      const userIds = new Set<string>();
+      repliesData.forEach((reply: any) => {
+        if (reply.user_id) userIds.add(reply.user_id);
+        if (reply.seller_id) userIds.add(reply.seller_id);
+      });
+
+      // Fetch profiles for all users
+      let profilesMap = new Map<string, any>();
+      if (userIds.size > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", Array.from(userIds));
+
+        if (profilesError) {
+          console.warn("Error fetching profiles (will continue without names):", profilesError);
+        } else {
+          profilesData?.forEach((profile: any) => {
+            profilesMap.set(profile.id, profile);
+          });
+        }
+      }
+
+      // Map replies to include the correct profile based on reply_type
+      const mappedReplies = repliesData.map((reply: any) => {
+        const profileId = reply.reply_type === 'vendor' ? reply.seller_id : reply.user_id;
+        const profile = profileId ? profilesMap.get(profileId) : null;
+        
+        // Get a fallback name from email if profile doesn't exist
+        let displayName = "Anonymous";
+        if (profile?.full_name) {
+          displayName = profile.full_name;
+        } else if (profileId) {
+          // Try to extract name from user email as fallback (if available)
+          displayName = `User ${profileId.slice(0, 8)}`;
+        }
+        
+        return {
+          ...reply,
+          profiles: {
+            full_name: displayName,
+            avatar_url: profile?.avatar_url || null,
+          },
+        };
+      });
       
-      // Map replies to include the correct profile
-      const mappedReplies = (data || []).map((reply: any) => ({
-        ...reply,
-        profiles: reply.reply_type === 'vendor' 
-          ? reply.seller_profiles 
-          : reply.user_profiles,
-      }));
-      
+      console.log("Mapped replies:", mappedReplies);
       setReplies(mappedReplies);
     } catch (error: any) {
       console.error("Error fetching replies:", error);
+      console.error("Error details:", error.message, error.code, error.details);
       toast({
         title: "Error",
-        description: "Failed to load replies",
+        description: error.message || "Failed to load replies",
         variant: "destructive",
       });
+      setReplies([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -105,7 +149,21 @@ export const ReviewReplies = ({ reviewId, productSellerId, currentUserId }: Revi
       const isVendor = productSellerId === currentUserId;
       const replyType = isVendor ? "vendor" : "user";
 
+      // Get session to include auth header
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Error",
+          description: "Please sign in to reply",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("submit-reply", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: {
           reviewId,
           parentReplyId,
@@ -123,9 +181,12 @@ export const ReviewReplies = ({ reviewId, productSellerId, currentUserId }: Revi
         });
         setReplyText("");
         setReplyingTo(null);
-        fetchReplies();
+        // Refresh replies after a short delay to ensure database is updated
+        setTimeout(() => {
+          fetchReplies();
+        }, 300);
       } else {
-        throw new Error(data?.error || "Failed to submit reply");
+        throw new Error(data?.error || data?.message || "Failed to submit reply");
       }
     } catch (error: any) {
       console.error("Error submitting reply:", error);

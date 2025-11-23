@@ -104,6 +104,37 @@ serve(async (req: Request) => {
 
     if (error) {
       console.error("Error inserting reply:", error);
+      console.error("Reply data attempted:", replyData);
+      
+      // Provide more specific error messages
+      if (error.code === '23514' || error.message?.includes('check_reply_author')) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "INVALID_REPLY_AUTHOR",
+            message: "Reply must have either seller_id (for vendor) or user_id (for user)",
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
+      
+      if (error.code === '23503') {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "INVALID_REVIEW",
+            message: "The review you're replying to does not exist",
+          }),
+          {
+            status: 404,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
+      
       throw error;
     }
 

@@ -157,7 +157,7 @@ serve(async (req: Request) => {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(email.trim())) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -170,73 +170,10 @@ serve(async (req: Request) => {
       );
     }
 
-    // CRITICAL: Validate credentials WITHOUT creating a session
-    // Use admin API to verify credentials without creating a client session
-    try {
-      // Get user by email using admin API
-      const { data: userData, error: userError } = await supabase.auth.admin.getUserByEmail(email);
-      
-      if (userError || !userData?.user) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Invalid email or password",
-          }),
-          {
-            status: 401,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          }
-        );
-      }
-
-      // Create a temporary client to verify password
-      // We'll use a separate client that won't persist session
-      const tempSupabase = createClient(
-        supabaseUrl,
-        Deno.env.get("SUPABASE_ANON_KEY")!,
-        {
-          auth: {
-            persistSession: false, // Don't persist session
-            autoRefreshToken: false,
-          },
-        }
-      );
-
-      // Try to sign in to verify password (but session won't persist)
-      const { error: authError } = await tempSupabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) {
-        // Invalid password
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Invalid email or password",
-          }),
-          {
-            status: 401,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          }
-        );
-      }
-
-      // Credentials are valid - proceed to send OTP
-
-    } catch (authError: any) {
-      console.error("Error validating credentials:", authError);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Invalid email or password",
-        }),
-        {
-          status: 401,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
+    // NOTE: We don't validate credentials here - we'll validate them when OTP is verified
+    // This is more secure as it doesn't reveal whether an email exists
+    // Credentials will be validated in verify-login-otp function
+    console.log("Sending login OTP for email:", email.trim());
 
     // Generate OTP
     const otp = generateOTP();

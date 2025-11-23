@@ -262,9 +262,10 @@ const Auth = () => {
     try {
       // Step 1: Validate credentials and send OTP (DO NOT authenticate yet)
       const { data, error } = await supabase.functions.invoke("send-login-otp", {
+        method: "POST",
         body: {
-          email,
-          password, // Password is needed for credential validation
+          email: email.trim(),
+          password: password, // Password is needed for credential validation
         },
       });
 
