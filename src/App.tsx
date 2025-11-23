@@ -64,7 +64,9 @@ const App = () => (
           <Route path="/orders" element={<Orders />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment-failure" element={<PaymentFailure />} />
+          <Route path="/payment/failure" element={<PaymentFailure />} />
           <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
           <Route path="/offline-booking" element={<OfflineBooking />} />
           <Route path="/offline-pickup" element={<OfflinePickup />} />

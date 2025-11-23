@@ -1,280 +1,202 @@
-# 🎉 Wholesaler Performance Dashboard - Implementation Summary
+# PayU Integration & Multi-Address Checkout - Implementation Summary
 
-## ✅ All Features Delivered
+## ✅ Completed Features
 
-### 1. Database Infrastructure ✅
-**File**: `supabase/migrations/20251119150000_wholesaler_performance_tracking.sql`
+### 1. Multi-Address Management
+- ✅ Database migration for `user_addresses` table
+- ✅ Address management in Profile page (Add, Edit, Delete, Set Default)
+- ✅ Address selector component for Checkout page
+- ✅ Manual address input option in checkout
+- ✅ Default address auto-selection
 
-- ✅ `sku_performance_alerts` table - 415 lines with full RLS
-- ✅ `wholesaler_alert_config` table - threshold management
-- ✅ `retailer_issue_reports` table - complaint tracking
-- ✅ `order_status_history` table - audit trail
-- ✅ Indexes on all foreign keys and query columns
-- ✅ Trigger functions for automatic status logging
-- ✅ `check_sku_performance()` - automated alert detection
-- ✅ `get_wholesaler_sku_feedback()` - aggregation function with trend analysis
+### 2. PayU Payment Gateway Integration
+- ✅ PayU payment option in PaymentMethodSelector
+- ✅ Server-side hash generation (secure SHA-512)
+- ✅ PayU payment flow integration
+- ✅ Order creation before payment
+- ✅ Payment status tracking
 
-### 2. API Edge Functions ✅
-**Files**: `supabase/functions/*`
+### 3. Payment Success/Failure Pages
+- ✅ PaymentSuccess page with invoice download
+- ✅ PaymentFailure page with retry option
+- ✅ Order details display
+- ✅ Navigation to order tracking
 
-1. **get-wholesaler-feedback** (176 lines)
-   - Returns aggregated SKU performance across retailers
-   - Supports filtering and sorting
-   - Includes alert enrichment
+### 4. Invoice Generation
+- ✅ Invoice download for both COD and PayU orders
+- ✅ Professional invoice layout
+- ✅ Print-friendly HTML invoice
+- ✅ Complete order details on invoice
 
-2. **get-wholesaler-dashboard-summary** (225 lines)
-   - Dashboard metrics and KPIs
-   - Top problem products
-   - Retailer performance insights
+## Files Created
 
-3. **send-alert-notifications** (369 lines)
-   - HTML email generation
-   - Multi-wholesaler processing
-   - Email service integration ready
+### Database
+- `supabase/migrations/20251128000000_create_user_addresses_table.sql`
 
-### 3. React UI Components ✅
+### Edge Functions
+- `supabase/functions/generate-payu-hash/index.ts` - Generates PayU hash server-side
+- `supabase/functions/payu-callback/index.ts` - Handles PayU webhook callbacks (optional)
 
-1. **AggregatedSKUFeedback.tsx** (432 lines)
-   - SKU performance analytics with charts
-   - Recharts integration for data visualization
-   - Time period and sort filtering
-   - Summary cards with key metrics
-   - Product list with ratings, sentiment, trends
+### Components
+- `src/components/addresses/AddressForm.tsx` - Form for adding/editing addresses
+- `src/components/addresses/AddressList.tsx` - List of saved addresses in Profile
+- `src/components/addresses/AddressSelector.tsx` - Address selection in Checkout
 
-2. **ProblemSKUAlerts.tsx** (436 lines)
-   - Active alert management
-   - Alert status workflow (acknowledge → resolve → dismiss)
-   - Threshold configuration dialog
-   - Email notification toggle
-   - Critical vs warning severity
+### Pages
+- `src/pages/PaymentFailure.tsx` - Payment failure page
 
-3. **RetailerInsights.tsx** (393 lines)
-   - Retailer issue breakdown
-   - Issue type categorization (quality, delivery, packaging, quantity, other)
-   - Drill-down dialog with full issue details
-   - Status management (reported → investigating → resolved)
+### Utilities
+- `src/lib/invoiceGenerator.ts` - Invoice generation and download
 
-4. **WholesalerOrderFlow.tsx** (459 lines)
-   - Complete order tracking
-   - Status history timeline
-   - Customer feedback integration
-   - Status filtering
-   - Detailed order view with items, address, payments
+### Documentation
+- `PAYU_IMPLEMENTATION_PLAN.md` - Implementation plan
+- `PAYU_SETUP_INSTRUCTIONS.md` - Setup guide
+- `IMPLEMENTATION_SUMMARY.md` - This file
 
-5. **Enhanced WholesalerDashboard.tsx** (updated)
-   - 7 tabs: Inventory, Analytics, Alerts, Insights, Order Flow, Legacy View, History
-   - Export dropdown menu integration
-   - Responsive layout
+## Files Modified
 
-### 4. Export Utilities ✅
-**File**: `src/lib/exportUtils.ts` (365 lines)
+### Components
+- `src/components/PaymentMethodSelector.tsx` - Added PayU option, removed card/UPI
 
-- ✅ `exportSKUPerformance()` - Product performance CSV
-- ✅ `exportComplaintLogs()` - Retailer issue CSV
-- ✅ `exportActiveAlerts()` - Alert CSV
-- ✅ `exportCompleteReport()` - All data combined
-- ✅ Proper CSV formatting with escape handling
-- ✅ Timestamp in filenames
+### Pages
+- `src/pages/Checkout.tsx` - Integrated AddressSelector, PayU flow
+- `src/pages/Account.tsx` - Added AddressList component
+- `src/pages/PaymentSuccess.tsx` - Added invoice download functionality
 
-### 5. Documentation ✅
-**File**: `WHOLESALER_PERFORMANCE_DASHBOARD_DOCUMENTATION.md` (600+ lines)
+### Routing
+- `src/App.tsx` - Added routes for `/payment/success` and `/payment/failure`
 
-- ✅ Configuration & threshold reference
-- ✅ 80+ acceptance criteria
-- ✅ Comprehensive testing checklist
-- ✅ Database schema documentation
-- ✅ Deployment instructions
-- ✅ Troubleshooting guide
-- ✅ SQL debug queries
+## Database Schema Changes
 
----
-
-## 📊 Statistics
-
-| Metric | Count |
-|--------|-------|
-| **Total Files Created** | 9 |
-| **Total Lines of Code** | ~3,900 |
-| **Database Tables** | 4 new |
-| **Database Functions** | 3 new |
-| **Edge Functions** | 3 new |
-| **React Components** | 5 new |
-| **Export Functions** | 4 new |
-| **Acceptance Criteria** | 80+ |
-
----
-
-## 🎯 Key Features Delivered
-
-### For Wholesalers
-
-✅ **Monitor Product Performance**
-- See which SKUs are performing well/poorly across ALL retailers
-- Track average ratings, review counts, sentiment trends
-- Identify problem products before they become major issues
-
-✅ **Proactive Alerting**
-- Configurable thresholds for rating, negative reviews, complaints
-- Email notifications when products need attention
-- Alert lifecycle management (acknowledge, resolve, dismiss)
-
-✅ **Retailer Insights**
-- Identify which retailers report the most issues
-- See recurring problems for specific products
-- Manage issue status and resolution
-
-✅ **Complete Order Visibility**
-- Track every retailer order from placement to delivery
-- View full status history timeline
-- See customer feedback on delivered orders
-
-✅ **Data Export & Reporting**
-- Export any data to CSV for external analysis
-- Filter exports by time period, products, retailers
-- Complete report option downloads all data
-
----
-
-## 🚀 Deployment Checklist
-
-### Step 1: Database Migration
-```bash
-cd /Users/raghavgulati/Desktop/oop/live-mart-connect
-supabase db push
+### New Table: `user_addresses`
+```sql
+- id (UUID, Primary Key)
+- user_id (UUID, Foreign Key to auth.users)
+- address_line_1 (TEXT, Required)
+- address_line_2 (TEXT, Optional)
+- city (TEXT, Required)
+- state (TEXT, Required)
+- zip (TEXT, Required)
+- country (TEXT, Default: 'India')
+- phone (TEXT, Optional)
+- label (TEXT, 'Home'/'Work'/'Other')
+- is_default (BOOLEAN, Default: false)
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
 ```
-**Expected**: Migration `20251119150000_wholesaler_performance_tracking.sql` applies successfully
 
-### Step 2: Deploy Edge Functions
-```bash
-supabase functions deploy get-wholesaler-feedback
-supabase functions deploy get-wholesaler-dashboard-summary
-supabase functions deploy send-alert-notifications
+### Modified Table: `orders`
+```sql
+- selected_address_id (UUID, Foreign Key to user_addresses, Nullable)
 ```
-**Expected**: 3 functions deployed to Supabase
 
-### Step 3: Build Frontend
+## Payment Flow
+
+### Cash on Delivery (COD)
+1. User selects address
+2. User selects COD payment method
+3. User clicks "Place Order"
+4. Order created with status: pending, payment_status: pending
+5. Redirect to PaymentSuccess page
+6. Invoice can be downloaded
+
+### PayU Online Payment
+1. User selects address
+2. User selects "Pay Online (PayU)" payment method
+3. User clicks "Pay Now"
+4. Order created with status: pending, payment_status: pending
+5. Frontend calls `generate-payu-hash` edge function
+6. Edge function generates SHA-512 hash
+7. Frontend creates hidden form with PayU parameters
+8. Form auto-submits to PayU payment page
+9. User completes payment on PayU
+10. PayU redirects to success/failure URL
+11. PaymentSuccess page shows invoice download option
+
+## Environment Variables Required
+
+### Supabase Secrets (Edge Functions)
 ```bash
-npm run build
+PAYU_KEY=your_payu_merchant_key
+PAYU_SALT=your_payu_salt
 ```
-**Expected**: Build completes successfully, no TypeScript errors
 
-### Step 4: Test Key Flows
+### Frontend (.env)
+```env
+VITE_PAYU_MODE=test  # or "production"
+```
 
-1. **Login as Wholesaler** → Navigate to dashboard
-2. **Check Analytics Tab** → Should show products with reviews
-3. **Configure Alerts** → Set thresholds, save config
-4. **Submit Test Issue** → Create retailer issue report via database
-5. **Check Insights Tab** → Should show retailer with issue
-6. **View Order Flow** → Should display retailer orders
-7. **Export Data** → Download CSV files
+## Testing Checklist
 
----
+### Address Management
+- [ ] Add new address in Profile
+- [ ] Edit existing address
+- [ ] Delete address
+- [ ] Set default address
+- [ ] Select address in checkout
+- [ ] Add new address during checkout
 
-## 📝 Next Steps
+### PayU Payment
+- [ ] Select PayU payment method
+- [ ] Redirect to PayU payment page
+- [ ] Complete test payment
+- [ ] Redirect back to success page
+- [ ] Order status updated correctly
 
-### Immediate (Pre-Production)
-1. ⏳ Apply database migration to Supabase
-2. ⏳ Deploy edge functions
-3. ⏳ Build and test frontend
-4. ⏳ Integrate real email service (SendGrid/AWS SES/Resend)
-5. ⏳ Set up cron job for periodic alert checks
+### Invoice Download
+- [ ] Download invoice for COD order
+- [ ] Download invoice for PayU order
+- [ ] Invoice contains correct information
+- [ ] Invoice is print-friendly
 
-### Short-Term (Post-Launch)
-1. 📊 Monitor query performance with real data
-2. 🐛 Gather user feedback and fix bugs
-3. 📱 Improve mobile responsiveness
-4. 🔔 Add Realtime subscriptions for live updates
-5. 📧 Fine-tune email templates
+## Next Steps
 
-### Long-Term (Enhancements)
-1. 🤖 Add ML-based predictive analytics
-2. 🔗 Webhook integrations (Slack, Discord)
-3. 📈 Custom dashboard builder
-4. 🌍 Multi-language support
-5. 📊 Advanced BI dashboard with drill-down
+1. **Deploy Database Migration**
+   ```bash
+   supabase migration up
+   ```
 
----
+2. **Set Environment Variables**
+   ```bash
+   supabase secrets set PAYU_KEY=your_key
+   supabase secrets set PAYU_SALT=your_salt
+   ```
 
-## 🎓 How to Use
+3. **Deploy Edge Functions**
+   ```bash
+   supabase functions deploy generate-payu-hash
+   ```
 
-### As a Wholesaler:
+4. **Configure PayU Dashboard**
+   - Set success URL: `https://your-domain.com/payment/success`
+   - Set failure URL: `https://your-domain.com/payment/failure`
 
-**Monitoring Products:**
-1. Go to "Analytics" tab
-2. Select time period (7/30/90/365 days)
-3. Sort by rating to see problem products first
-4. Click on product to see detailed retailer breakdown
+5. **Test Payment Flow**
+   - Use PayU test credentials
+   - Verify order creation
+   - Verify payment status updates
+   - Test invoice download
 
-**Managing Alerts:**
-1. Go to "Alerts" tab
-2. Review active alerts (critical items shown first)
-3. Click "Acknowledge" to mark as seen
-4. Click "Resolve" when issue is fixed
-5. Configure thresholds via "Configure Thresholds" button
+## Known Limitations
 
-**Investigating Issues:**
-1. Go to "Insights" tab
-2. See which retailers report the most issues
-3. Click on retailer to see all their issues
-4. Update issue status as you work through them
+1. **Invoice Format**: Currently uses HTML-to-PDF via browser print. For production, consider using a dedicated PDF library (jsPDF, pdfmake).
 
-**Tracking Orders:**
-1. Go to "Order Flow" tab
-2. Filter by status (pending, delivered, etc.)
-3. Click order to see full details and feedback
-4. Review status history timeline
+2. **PayU Callback**: The `payu-callback` edge function is optional. Currently, payment status is verified on frontend redirect.
 
-**Exporting Data:**
-1. Click "Export Reports" dropdown
-2. Select report type or "Complete Report"
-3. CSV file downloads automatically
-4. Open in Excel/Google Sheets for analysis
+3. **Address Validation**: No address validation/autocomplete is implemented. Users manually enter addresses.
 
----
+4. **Payment Retry**: Payment retry functionality from PaymentFailure page needs order retrieval logic.
 
-## 🔒 Security Features
+## Security Considerations
 
-✅ **Row-Level Security** on all tables
-✅ **Authentication required** for all endpoints
-✅ **Cross-tenant isolation** enforced
-✅ **SQL injection protection** via parameterized queries
-✅ **XSS prevention** via input sanitization
-✅ **RBAC enforcement** via user_roles checks
+✅ PayU hash generation is server-side only
+✅ Hash verification on payment callback
+✅ RLS policies on user_addresses table
+✅ Only users can access their own addresses
+✅ Order creation before payment (prevents inventory issues)
 
----
+## Support & Documentation
 
-## 📞 Support
-
-**For technical issues:**
-- Check `WHOLESALER_PERFORMANCE_DASHBOARD_DOCUMENTATION.md` troubleshooting section
-- Run debug SQL queries provided in documentation
-- Check Supabase logs for edge function errors
-
-**For feature requests:**
-- Document in GitHub issues
-- Include use case and expected behavior
-- Provide mockups if UI changes needed
-
----
-
-## 🎊 Congratulations!
-
-You now have a comprehensive Wholesaler Performance Dashboard with:
-
-✅ Real-time product monitoring across all retailers  
-✅ Proactive alerting with configurable thresholds  
-✅ Retailer insights for quality management  
-✅ Complete order flow visibility  
-✅ Flexible data export for analysis  
-✅ Email notifications for critical issues  
-✅ Full documentation and testing guides  
-
-**Ready for deployment!** 🚀
-
----
-
-**Implementation Completed**: November 19, 2025  
-**Total Development Time**: ~3 hours  
-**Code Quality**: Production-ready with full error handling  
-**Documentation**: Comprehensive (600+ lines)  
-**Test Coverage**: 80+ acceptance criteria defined
+- PayU Integration: See `PAYU_SETUP_INSTRUCTIONS.md`
+- Implementation Plan: See `PAYU_IMPLEMENTATION_PLAN.md`
+- PayU Docs: https://devguide.payu.in/

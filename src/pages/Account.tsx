@@ -12,6 +12,7 @@ import { LocationPicker } from "@/components/LocationPicker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import MyReviews from "@/components/feedback/MyReviews";
 import { reverseGeocode, forwardGeocode, type AddressComponents } from "@/lib/reverseGeocode";
+import AddressList from "@/components/addresses/AddressList";
 
 interface Profile {
   full_name: string;
@@ -641,6 +642,23 @@ const Account = () => {
           </Card>
 
           {userRole === "customer" && <MyReviews />}
+
+          {userRole === "customer" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Manage Addresses
+                </CardTitle>
+                <CardDescription>
+                  Save multiple delivery addresses for quick checkout
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {user && <AddressList userId={user.id} />}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

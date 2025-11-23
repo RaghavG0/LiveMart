@@ -1,17 +1,48 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { XCircle } from "lucide-react";
+import { XCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const PaymentFailure = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const reason = searchParams.get("reason") || "Payment processing failed";
+  const orderId = searchParams.get("orderId");
+  const [orderExists, setOrderExists] = useState(false);
 
   useEffect(() => {
     document.title = "Payment Failed";
-  }, []);
+    if (orderId) {
+      checkOrderExists();
+    }
+  }, [orderId]);
+
+  const checkOrderExists = async () => {
+    if (!orderId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, payment_status")
+        .eq("id", orderId)
+        .single();
+
+      if (!error && data) {
+        setOrderExists(true);
+        // Optionally update payment status to failed
+        if (data.payment_status !== "failed") {
+          await supabase
+            .from("orders")
+            .update({ payment_status: "failed" })
+            .eq("id", orderId);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking order:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -22,32 +53,53 @@ const PaymentFailure = () => {
           </div>
           <CardTitle className="text-2xl">Payment Failed</CardTitle>
           <CardDescription>
-            We couldn't process your payment
+            Your payment could not be processed
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="bg-muted p-4 rounded-lg">
-            <p className="text-sm text-muted-foreground mb-1">Reason</p>
-            <p className="text-sm">{reason}</p>
-          </div>
+          {orderId && (
+            <div className="bg-muted p-4 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-1">Order ID</p>
+              <p className="font-mono font-semibold">{orderId}</p>
+            </div>
+          )}
           
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              <strong>What happened?</strong>
+            </p>
+            <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+              Your payment could not be completed. This could be due to insufficient funds, incorrect card details, or a technical issue.
+            </p>
+          </div>
+
           <p className="text-sm text-center text-muted-foreground">
-            Your order has not been placed. Please try again or choose a different payment method.
+            Don't worry, your order is saved. You can retry the payment or contact support for assistance.
           </p>
 
           <div className="space-y-2 pt-4">
+            {orderExists && orderId && (
+              <Button 
+                onClick={() => navigate(`/checkout?retry=${orderId}`)} 
+                className="w-full"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry Payment
+              </Button>
+            )}
             <Button 
-              onClick={() => navigate("/checkout")} 
-              className="w-full"
-            >
-              Try Again
-            </Button>
-            <Button 
-              onClick={() => navigate("/cart")} 
+              onClick={() => navigate("/orders")} 
               variant="outline"
               className="w-full"
             >
-              Back to Cart
+              View My Orders
+            </Button>
+            <Button 
+              onClick={() => navigate("/")} 
+              variant="ghost"
+              className="w-full"
+            >
+              Go to Homepage
             </Button>
           </div>
         </CardContent>

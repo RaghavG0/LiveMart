@@ -11,22 +11,16 @@ interface PaymentMethodSelectorProps {
 const PaymentMethodSelector = ({ value, onChange }: PaymentMethodSelectorProps) => {
   const paymentMethods = [
     {
-      id: "card",
-      label: "Credit/Debit Card",
-      description: "Pay securely with your card",
-      icon: <CreditCard className="w-5 h-5" />,
-    },
-    {
-      id: "upi",
-      label: "UPI",
-      description: "Pay via UPI apps",
-      icon: <Smartphone className="w-5 h-5" />,
-    },
-    {
       id: "cod",
       label: "Cash on Delivery",
       description: "Pay when you receive",
       icon: <Wallet className="w-5 h-5" />,
+    },
+    {
+      id: "payu",
+      label: "Pay Online (PayU)",
+      description: "Pay securely with PayU payment gateway",
+      icon: <CreditCard className="w-5 h-5" />,
     },
   ];
 

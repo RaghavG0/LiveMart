@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import PaymentMethodSelector from "@/components/PaymentMethodSelector";
+import AddressSelector from "@/components/addresses/AddressSelector";
 
 interface CartItem {
   id: string;
@@ -29,7 +29,9 @@ const Checkout = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [manualAddress, setManualAddress] = useState("");
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -51,18 +53,42 @@ const Checkout = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("location_address")
+        .select("full_name, phone, location_address")
         .eq("id", userId)
         .single();
 
       if (error) throw error;
-      
-      if (data?.location_address) {
-        setDeliveryAddress(data.location_address);
-      }
+      setUserProfile(data);
     } catch (error: any) {
       console.error("Failed to load user profile:", error);
     }
+  };
+
+  // Get delivery address from selected address or manual input
+  const getDeliveryAddress = async (): Promise<string> => {
+    if (manualAddress.trim()) {
+      return manualAddress.trim();
+    }
+
+    if (selectedAddressId) {
+      const { data, error } = await supabase
+        .from("user_addresses")
+        .select("*")
+        .eq("id", selectedAddressId)
+        .single();
+
+      if (!error && data) {
+        const parts = [
+          data.address_line_1,
+          data.address_line_2,
+          `${data.city}, ${data.state} ${data.zip}`,
+          data.country,
+        ].filter(Boolean);
+        return parts.join(", ");
+      }
+    }
+
+    return userProfile?.location_address || "";
   };
 
   const fetchUserRole = async (userId: string) => {
@@ -122,8 +148,10 @@ const Checkout = () => {
   };
 
   const handlePlaceOrder = async () => {
-    if (!deliveryAddress.trim()) {
-      toast.error("Please enter a delivery address");
+    // Validate address
+    const deliveryAddress = await getDeliveryAddress();
+    if (!deliveryAddress.trim() && !selectedAddressId && !manualAddress.trim()) {
+      toast.error("Please select or enter a delivery address");
       return;
     }
 
@@ -132,23 +160,26 @@ const Checkout = () => {
       return;
     }
 
-    if (!user) return;
+    if (!user || !userProfile) return;
 
     setSubmitting(true);
     try {
+      const finalDeliveryAddress = deliveryAddress.trim() || manualAddress.trim();
+      
       // Determine order type and seller_id based on user role
       const orderType = userRole === 'retailer' ? 'retailer' : 'customer';
       const sellerId = orderType === 'retailer' && cartItems.length > 0 
         ? (cartItems[0].product as any).seller_id 
         : null;
 
-      // Create order
+      // Create order first (even for PayU - we'll update payment_status after payment)
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert({
           customer_id: user.id,
           total_amount: calculateTotal(),
-          delivery_address: deliveryAddress,
+          delivery_address: finalDeliveryAddress,
+          selected_address_id: selectedAddressId,
           notes: notes || null,
           status: "pending",
           payment_status: paymentMethod === "cod" ? "pending" : "pending",
@@ -183,20 +214,119 @@ const Checkout = () => {
 
       if (clearError) throw clearError;
 
-      toast.success("Order placed successfully!");
-      
-      // Redirect based on payment method
+      // Handle payment flow
       if (paymentMethod === "cod") {
+        toast.success("Order placed successfully!");
         navigate(`/payment-success?orderId=${orderData.id}`);
-      } else {
-        // For card/UPI payments, would redirect to payment gateway
-        // For now, simulate immediate success
-        navigate(`/payment-success?orderId=${orderData.id}`);
+      } else if (paymentMethod === "payu") {
+        // Redirect to PayU payment
+        await initiatePayUPayment(orderData.id, orderData.total_amount);
       }
     } catch (error: any) {
       toast.error("Failed to place order: " + error.message);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const initiatePayUPayment = async (orderId: string, amount: number) => {
+    try {
+      if (!user || !userProfile) return;
+
+      const useMockPayment = import.meta.env.VITE_USE_MOCK_PAYMENT === "true" || 
+                            !import.meta.env.VITE_PAYU_KEY;
+
+      // Mock Payment Mode - Simulates payment without calling PayU
+      if (useMockPayment) {
+        toast.info("Test mode: Simulating payment...");
+        
+        // Simulate payment delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Update order payment status to simulate successful payment
+        const { error: updateError } = await supabase
+          .from("orders")
+          .update({
+            payment_status: "paid",
+            status: "confirmed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", orderId);
+
+        if (updateError) {
+          console.error("Error updating order:", updateError);
+        }
+
+        toast.success("Test payment completed successfully!");
+        
+        // Redirect to success page
+        navigate(`/payment/success?orderId=${orderId}`);
+        return;
+      }
+
+      // Real PayU Payment Flow
+      // Generate transaction ID
+      const txnid = `ORDER_${orderId}_${Date.now()}`;
+      const productinfo = cartItems.map(item => item.product.name).join(", ");
+      
+      // Call edge function to generate PayU hash
+      const { data: hashData, error: hashError } = await supabase.functions.invoke(
+        "generate-payu-hash",
+        {
+          body: {
+            txnid,
+            amount: amount.toString(),
+            productinfo: productinfo.substring(0, 100), // PayU limit
+            firstname: userProfile.full_name || user.email?.split("@")[0] || "Customer",
+            email: user.email || "",
+            phone: userProfile.phone || "",
+          },
+        }
+      );
+
+      if (hashError || !hashData?.hash) {
+        throw new Error("Failed to initialize payment");
+      }
+
+      // Get PayU credentials from edge function response or environment
+      const payuKey = hashData.key || import.meta.env.VITE_PAYU_KEY || "gtKFFx"; // Default test key
+      const payuMode = import.meta.env.VITE_PAYU_MODE || "test";
+      const payuUrl = payuMode === "test" 
+        ? "https://test.payu.in/_payment"
+        : "https://secure.payu.in/_payment";
+
+      // Create and submit PayU form
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = payuUrl;
+
+      const payuParams: Record<string, string> = {
+        key: payuKey,
+        txnid,
+        amount: amount.toString(),
+        productinfo,
+        firstname: userProfile.full_name || user.email?.split("@")[0] || "Customer",
+        email: user.email || "",
+        phone: userProfile.phone || "",
+        hash: hashData.hash,
+        surl: `${window.location.origin}/payment/success?orderId=${orderId}`,
+        furl: `${window.location.origin}/payment/failure?orderId=${orderId}`,
+      };
+
+      // Add hidden inputs
+      Object.entries(payuParams).forEach(([key, value]) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      });
+
+      document.body.appendChild(form);
+      form.submit();
+    } catch (error: any) {
+      console.error("PayU payment initiation error:", error);
+      toast.error("Failed to initialize payment: " + error.message);
     }
   };
 
@@ -232,15 +362,32 @@ const Checkout = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="address">Delivery Address *</Label>
-                  <Textarea
-                    id="address"
-                    placeholder="Enter your complete delivery address"
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    className="mt-2"
-                    rows={3}
-                  />
+                  <Label>Delivery Address *</Label>
+                  <div className="mt-2">
+                    {user ? (
+                      <AddressSelector
+                        userId={user.id}
+                        selectedAddressId={selectedAddressId}
+                        onAddressSelect={(addressId) => {
+                          setSelectedAddressId(addressId);
+                          setManualAddress(""); // Clear manual address when selecting saved address
+                        }}
+                        onManualAddressChange={(address) => {
+                          setManualAddress(address);
+                        }}
+                      />
+                    ) : (
+                      <Textarea
+                        placeholder="Enter your complete delivery address"
+                        value={manualAddress}
+                        onChange={(e) => {
+                          setManualAddress(e.target.value);
+                          setSelectedAddressId(null); // Clear selected address when using manual input
+                        }}
+                        rows={3}
+                      />
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="notes">Order Notes (Optional)</Label>
@@ -297,9 +444,12 @@ const Checkout = () => {
                   className="w-full"
                   size="lg"
                   onClick={handlePlaceOrder}
-                  disabled={submitting}
+                  disabled={submitting || (!selectedAddressId && !manualAddress.trim())}
                 >
-                  {submitting ? "Placing Order..." : "Place Order"}
+                  {submitting 
+                    ? (paymentMethod === "payu" ? "Redirecting to PayU..." : "Placing Order...")
+                    : (paymentMethod === "payu" ? "Pay Now" : "Place Order")
+                  }
                 </Button>
               </CardContent>
             </Card>
