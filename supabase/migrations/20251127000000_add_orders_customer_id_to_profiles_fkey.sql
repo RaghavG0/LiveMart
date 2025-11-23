@@ -4,28 +4,56 @@
 -- This enables Supabase PostgREST to join orders with profiles
 -- for fetching customer names in order queries
 
--- Check if the foreign key already exists before creating it
+-- Step 1: Find and drop ALL existing foreign key constraints on customer_id column
+-- (There may be one pointing to auth.users, and we need to replace it)
+DO $$
+DECLARE
+  fk_record RECORD;
+BEGIN
+  -- Find all foreign key constraints on customer_id
+  FOR fk_record IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = 'public.orders'::regclass
+      AND contype = 'f'
+      AND (
+        -- Check if this FK constraint involves customer_id
+        SELECT COUNT(*) 
+        FROM pg_attribute a
+        WHERE a.attrelid = conrelid 
+          AND a.attnum = ANY(conkey)
+          AND a.attname = 'customer_id'
+      ) > 0
+  LOOP
+    EXECUTE format('ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS %I', fk_record.conname);
+    RAISE NOTICE 'Dropped existing foreign key constraint: %', fk_record.conname;
+  END LOOP;
+END $$;
+
+-- Step 2: Add the foreign key constraint to profiles.id with the exact name needed
+-- This enables PostgREST to recognize the relationship
 DO $$
 BEGIN
-  -- Check if the constraint already exists
+  -- Check if the constraint already exists and points to profiles
   IF NOT EXISTS (
     SELECT 1 
     FROM pg_constraint 
     WHERE conname = 'orders_customer_id_fkey'
     AND conrelid = 'public.orders'::regclass
+    AND confrelid = 'public.profiles'::regclass
   ) THEN
-    -- Add the foreign key constraint
-    -- Note: Since customer_id references auth.users(id) and profiles.id also references auth.users(id),
-    -- this foreign key will work correctly because both columns contain the same user IDs
+    -- Add the foreign key constraint to profiles.id
+    -- This works because profiles.id references auth.users(id) and contains the same user IDs
+    -- We're essentially changing from referencing auth.users directly to referencing profiles
     ALTER TABLE public.orders
       ADD CONSTRAINT orders_customer_id_fkey 
       FOREIGN KEY (customer_id) 
       REFERENCES public.profiles(id) 
       ON DELETE CASCADE;
     
-    RAISE NOTICE 'Foreign key orders_customer_id_fkey created successfully';
+    RAISE NOTICE 'Foreign key orders_customer_id_fkey created successfully pointing to profiles';
   ELSE
-    RAISE NOTICE 'Foreign key orders_customer_id_fkey already exists, skipping';
+    RAISE NOTICE 'Foreign key orders_customer_id_fkey already exists and points to profiles';
   END IF;
 END $$;
 
