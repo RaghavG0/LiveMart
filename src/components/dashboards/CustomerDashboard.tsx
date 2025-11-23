@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar, MessageSquare, ShoppingBag, Menu, Store, ArrowRight, Filter } from "lucide-react";
+import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar, MessageSquare, ShoppingBag, Menu, Store, ArrowRight, Filter, MessageCircle } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { getPickupCartItemCount } from "@/lib/pickupCart";
 import { toast } from "sonner";
@@ -207,6 +207,19 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
               <div className="flex flex-col items-center gap-0.5">
                 <NotificationBell />
                 <span className="text-[10px] text-white/90 hidden sm:block">Notifications</span>
+              </div>
+
+              <div className="flex flex-col items-center gap-0.5">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => navigate("/support-chat")} 
+                  className="text-white hover:text-primary hover:bg-white/10"
+                  title="Support Chat"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Support</span>
               </div>
               
               <div className="flex flex-col items-center gap-0.5">

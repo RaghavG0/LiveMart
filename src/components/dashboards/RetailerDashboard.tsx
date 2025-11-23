@@ -2,7 +2,7 @@ import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Package, BarChart3, Store, User as UserIcon, ShoppingBag } from "lucide-react";
+import { LogOut, Plus, Package, BarChart3, Store, User as UserIcon, ShoppingBag, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +17,7 @@ import NotificationBell from "@/components/NotificationBell";
 import PendingInventoryOrders from "@/components/PendingInventoryOrders";
 import RetailerFeedbackOverview from "@/components/dashboard/RetailerFeedbackOverview";
 import OrderStatusManager from "@/components/dashboard/OrderStatusManager";
+import LowStockAlert from "@/components/alerts/LowStockAlert";
 
 interface RetailerDashboardProps {
   user: User;
@@ -40,6 +41,7 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const [outOfStockCount, setOutOfStockCount] = useState(0);
   const { hasLocation, loading: locationLoading } = useSellerLocation(user?.id);
 
   const handleSignOut = async () => {
@@ -99,6 +101,19 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
                 <NotificationBell />
                 <span className="text-[10px] text-white/90 hidden sm:block">Notifications</span>
               </div>
+
+              <div className="flex flex-col items-center gap-0.5">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => navigate("/support-chat")} 
+                  className="text-white hover:text-primary hover:bg-white/10"
+                  title="Support Chat"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Support</span>
+              </div>
               
               <div className="flex flex-col items-center gap-0.5">
                 <Button variant="ghost" size="icon" onClick={() => navigate("/account")} title="Account Settings" className="text-white hover:text-primary hover:bg-white/10">
@@ -126,6 +141,16 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
         </div>
 
         <LocationStatusBanner show={hasLocation === false && !locationLoading} />
+
+        {/* Low Stock Alert */}
+        <LowStockAlert 
+          outOfStockCount={outOfStockCount} 
+          onManageProducts={() => {
+            // Focus on products tab when "Manage Products" is clicked
+            const productsTab = document.querySelector('[value="products"]') as HTMLElement;
+            if (productsTab) productsTab.click();
+          }}
+        />
 
         {/* Pending Inventory Orders */}
         <div className="mb-6">
@@ -160,6 +185,7 @@ const RetailerDashboard = ({ user }: RetailerDashboardProps) => {
               onEdit={handleEditProduct}
               onAdd={handleAddProduct}
               refreshTrigger={refreshTrigger}
+              onStockCountChange={setOutOfStockCount}
             />
           </TabsContent>
 

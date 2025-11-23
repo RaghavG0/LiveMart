@@ -26,6 +26,7 @@ import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { NotificationPreferences } from "./components/notifications/NotificationPreferences";
 import { NotificationCenter } from "./components/notifications/NotificationCenter";
 import { PendingFeedbackChecker } from "./components/feedback/PendingFeedbackChecker";
+import SupportChat from "./pages/SupportChat";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,6 +76,7 @@ const App = () => (
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/settings/notifications" element={<NotificationPreferences />} />
           <Route path="/notifications" element={<NotificationCenter />} />
+          <Route path="/support-chat" element={<SupportChat />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

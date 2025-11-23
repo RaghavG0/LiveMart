@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Package, TrendingUp, CheckCircle, User as UserIcon, ShoppingBag, AlertTriangle, Users, Download, BarChart3 } from "lucide-react";
+import { LogOut, Plus, Package, TrendingUp, CheckCircle, User as UserIcon, ShoppingBag, AlertTriangle, Users, Download, BarChart3, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,6 +24,7 @@ import ProblemSKUAlerts from "@/components/dashboard/ProblemSKUAlerts";
 import RetailerInsights from "@/components/dashboard/RetailerInsights";
 import WholesalerOrderFlow from "@/components/dashboard/WholesalerOrderFlow";
 import { exportSKUPerformance, exportComplaintLogs, exportCompleteReport } from "@/lib/exportUtils";
+import LowStockAlert from "@/components/alerts/LowStockAlert";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,6 +79,7 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
   const [retailerOrders, setRetailerOrders] = useState<RetailerOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const [outOfStockCount, setOutOfStockCount] = useState(0);
   const { hasLocation, loading: locationLoading } = useSellerLocation(user?.id);
 
   const handleSignOut = async () => {
@@ -215,6 +217,19 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
                 <NotificationBell />
                 <span className="text-[10px] text-white/90 hidden sm:block">Notifications</span>
               </div>
+
+              <div className="flex flex-col items-center gap-0.5">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => navigate("/support-chat")} 
+                  className="text-white hover:text-primary hover:bg-white/10"
+                  title="Support Chat"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Support</span>
+              </div>
               
               <div className="flex flex-col items-center gap-0.5">
                 <Button variant="ghost" size="icon" onClick={() => navigate("/account")} title="Account Settings" className="text-white hover:text-primary hover:bg-white/10">
@@ -242,6 +257,16 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
         </div>
 
         <LocationStatusBanner show={hasLocation === false && !locationLoading} />
+
+        {/* Low Stock Alert */}
+        <LowStockAlert 
+          outOfStockCount={outOfStockCount} 
+          onManageProducts={() => {
+            // Focus on inventory tab when "Manage Products" is clicked
+            const inventoryTab = document.querySelector('[value="inventory"]') as HTMLElement;
+            if (inventoryTab) inventoryTab.click();
+          }}
+        />
 
         <Tabs defaultValue="inventory" className="space-y-6">
           <div className="flex items-center justify-between mb-4">
@@ -305,6 +330,7 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
               onEdit={handleEditProduct}
               onAdd={handleAddProduct}
               refreshTrigger={refreshTrigger}
+              onStockCountChange={setOutOfStockCount}
             />
           </TabsContent>
 

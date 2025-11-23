@@ -49,9 +49,10 @@ interface ProductListProps {
   onEdit: (product: Product) => void;
   onAdd: () => void;
   refreshTrigger?: number;
+  onStockCountChange?: (outOfStockCount: number) => void;
 }
 
-export const ProductList = ({ onEdit, onAdd, refreshTrigger }: ProductListProps) => {
+export const ProductList = ({ onEdit, onAdd, refreshTrigger, onStockCountChange }: ProductListProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -73,7 +74,14 @@ export const ProductList = ({ onEdit, onAdd, refreshTrigger }: ProductListProps)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setProducts(data || []);
+      const productsData = data || [];
+      setProducts(productsData);
+      
+      // Calculate and notify out-of-stock count
+      if (onStockCountChange) {
+        const outOfStockCount = productsData.filter(p => p.stock_quantity === 0).length;
+        onStockCountChange(outOfStockCount);
+      }
     } catch (error: any) {
       toast.error("Failed to load products");
     } finally {
@@ -152,8 +160,13 @@ export const ProductList = ({ onEdit, onAdd, refreshTrigger }: ProductListProps)
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.map((product) => (
-                  <TableRow key={product.id}>
+                {products.map((product) => {
+                  const isOutOfStock = product.stock_quantity === 0;
+                  return (
+                  <TableRow 
+                    key={product.id}
+                    className={isOutOfStock ? "bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100" : ""}
+                  >
                     <TableCell>
                       {product.image_url ? (
                         <img
@@ -205,7 +218,8 @@ export const ProductList = ({ onEdit, onAdd, refreshTrigger }: ProductListProps)
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
