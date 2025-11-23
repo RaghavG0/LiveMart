@@ -36,6 +36,8 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
     sortBy: "none",
     maxDistance: null,
     nearbyOnly: false,
+    categoryId: null,
+    subcategoryId: null,
   });
 
   useEffect(() => {
@@ -293,6 +295,8 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
                 userLocation={location}
                 maxDistance={filters.maxDistance}
                 sellerId={selectedSellerId}
+                categoryId={filters.categoryId}
+                subcategoryId={filters.subcategoryId}
               />
             </div>
           </div>

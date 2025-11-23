@@ -21,6 +21,7 @@ import ConfirmDelivery from "./pages/ConfirmDelivery";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { NotificationPreferences } from "./components/notifications/NotificationPreferences";
 import { NotificationCenter } from "./components/notifications/NotificationCenter";
+import { PendingFeedbackChecker } from "./components/feedback/PendingFeedbackChecker";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +45,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <PendingFeedbackChecker />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />

@@ -47,7 +47,7 @@ serve(async (req) => {
     // Calculate pagination
     const offset = (page - 1) * limit;
 
-    // Get paginated reviews with user info
+    // Get paginated reviews with user info and verified buyer flag
     const { data: reviews, error: reviewsError, count } = await supabaseClient
       .from('reviews')
       .select(`
@@ -57,6 +57,8 @@ serve(async (req) => {
         created_at,
         edited_at,
         user_id,
+        verified_buyer,
+        products!inner(seller_id),
         profiles!inner(full_name)
       `, { count: 'exact' })
       .eq('product_id', productId)
@@ -74,6 +76,8 @@ serve(async (req) => {
       createdAt: review.created_at,
       editedAt: review.edited_at,
       isEdited: !!review.edited_at,
+      verified_buyer: review.verified_buyer || false,
+      product_seller_id: review.products?.seller_id || null,
     })) || [];
 
     // Calculate total pages

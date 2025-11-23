@@ -1,11 +1,14 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, RotateCcw, Filter } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface FilterState {
   priceRange: [number, number];
@@ -14,6 +17,13 @@ export interface FilterState {
   sortBy: "none" | "price-asc" | "price-desc" | "distance-asc";
   maxDistance: number | null;
   nearbyOnly: boolean;
+  categoryId: string | null;
+  subcategoryId: string | null;
+}
+
+interface Category {
+  id: string;
+  name: string;
 }
 
 interface FilterPanelProps {
@@ -23,9 +33,87 @@ interface FilterPanelProps {
   hasLocation?: boolean;
 }
 
+// Default filters will be created dynamically with maxPrice
+const getDefaultFilters = (maxPrice: number): FilterState => ({
+  priceRange: [0, maxPrice],
+  minStock: 0,
+  inStockOnly: false,
+  sortBy: "none",
+  maxDistance: null,
+  nearbyOnly: false,
+  categoryId: null,
+  subcategoryId: null,
+});
+
 const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }: FilterPanelProps) => {
+  const [tempFilters, setTempFilters] = useState<FilterState>(filters);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Initialize tempFilters when filters prop changes (from parent)
+  useEffect(() => {
+    setTempFilters(filters);
+    // Reset subcategory when category changes externally
+    if (filters.categoryId !== tempFilters.categoryId) {
+      setTempFilters(prev => ({ ...prev, subcategoryId: null }));
+    }
+  }, [filters]);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // Fetch subcategories when category changes
+  useEffect(() => {
+    if (tempFilters.categoryId) {
+      fetchSubcategories(tempFilters.categoryId);
+    } else {
+      setSubcategories([]);
+    }
+  }, [tempFilters.categoryId]);
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order("name");
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSubcategories = async (categoryId: string) => {
+    try {
+      // For now, subcategories are just categories. 
+      // If you have a separate subcategories table, update this query
+      // For this implementation, we'll use categories as subcategories
+      // You can extend this later with a proper subcategories table
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order("name");
+
+      if (error) throw error;
+      // For now, show all categories as subcategories
+      // In production, you'd filter by parent_id or category_id
+      setSubcategories(data || []);
+    } catch (error) {
+      console.error("Error fetching subcategories:", error);
+      setSubcategories([]);
+    }
+  };
+
   const handlePriceChange = (index: 0 | 1, increment: boolean) => {
-    const newRange: [number, number] = [...filters.priceRange];
+    const newRange: [number, number] = [...tempFilters.priceRange];
     const step = 50;
     
     if (increment) {
@@ -41,7 +129,17 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
       newRange[1] = newRange[0];
     }
     
-    onFiltersChange({ ...filters, priceRange: newRange });
+    setTempFilters({ ...tempFilters, priceRange: newRange });
+  };
+
+  const handleApplyFilters = () => {
+    onFiltersChange(tempFilters);
+  };
+
+  const handleResetFilters = () => {
+    const resetFilters = getDefaultFilters(maxPrice);
+    setTempFilters(resetFilters);
+    onFiltersChange(resetFilters);
   };
 
   return (
@@ -50,14 +148,72 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
         <CardTitle className="text-lg text-gray-900">Filters</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Category Filter */}
+        <div className="space-y-2">
+          <Label htmlFor="category" className="text-sm font-medium">
+            Category
+          </Label>
+          <Select
+            value={tempFilters.categoryId || "all"}
+            onValueChange={(value) => 
+              setTempFilters({ 
+                ...tempFilters, 
+                categoryId: value === "all" ? null : value,
+                subcategoryId: null // Reset subcategory when category changes
+              })
+            }
+          >
+            <SelectTrigger id="category">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Subcategory Filter - Only show if category is selected */}
+        {tempFilters.categoryId && (
+          <div className="space-y-2">
+            <Label htmlFor="subcategory" className="text-sm font-medium">
+              Subcategory
+            </Label>
+            <Select
+              value={tempFilters.subcategoryId || "all"}
+              onValueChange={(value) => 
+                setTempFilters({ 
+                  ...tempFilters, 
+                  subcategoryId: value === "all" ? null : value
+                })
+              }
+            >
+              <SelectTrigger id="subcategory">
+                <SelectValue placeholder="All Subcategories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Subcategories</SelectItem>
+                {subcategories.map((subcategory) => (
+                  <SelectItem key={subcategory.id} value={subcategory.id}>
+                    {subcategory.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {/* Price Range */}
         <div className="space-y-3">
           <Label className="text-sm font-medium">Price Range</Label>
           <div className="space-y-3">
             <Slider
-              value={filters.priceRange}
+              value={tempFilters.priceRange}
               onValueChange={(value) => 
-                onFiltersChange({ ...filters, priceRange: value as [number, number] })
+                setTempFilters({ ...tempFilters, priceRange: value as [number, number] })
               }
               max={maxPrice}
               step={10}
@@ -73,19 +229,19 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => handlePriceChange(0, false)}
-                  disabled={filters.priceRange[0] === 0}
+                  disabled={tempFilters.priceRange[0] === 0}
                 >
                   <Minus className="h-3 w-3" />
                 </Button>
                 <div className="flex-1 text-center font-medium">
-                  ₹{filters.priceRange[0]}
+                  ₹{tempFilters.priceRange[0]}
                 </div>
                 <Button
                   variant="outline"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => handlePriceChange(0, true)}
-                  disabled={filters.priceRange[0] >= filters.priceRange[1]}
+                  disabled={tempFilters.priceRange[0] >= tempFilters.priceRange[1]}
                 >
                   <Plus className="h-3 w-3" />
                 </Button>
@@ -106,14 +262,14 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
                   <Minus className="h-3 w-3" />
                 </Button>
                 <div className="flex-1 text-center font-medium">
-                  ₹{filters.priceRange[1]}
+                  ₹{tempFilters.priceRange[1]}
                 </div>
                 <Button
                   variant="outline"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => handlePriceChange(1, true)}
-                  disabled={filters.priceRange[1] >= maxPrice}
+                  disabled={tempFilters.priceRange[1] >= maxPrice}
                 >
                   <Plus className="h-3 w-3" />
                 </Button>
@@ -126,9 +282,9 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
         <div className="space-y-3">
           <Label className="text-sm font-medium">Sort by Price</Label>
           <RadioGroup 
-            value={filters.sortBy} 
+            value={tempFilters.sortBy} 
             onValueChange={(value) => 
-              onFiltersChange({ ...filters, sortBy: value as FilterState["sortBy"] })
+              setTempFilters({ ...tempFilters, sortBy: value as FilterState["sortBy"] })
             }
           >
             <div className="flex items-center space-x-2">
@@ -161,9 +317,9 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
             id="minStock"
             type="number"
             min="0"
-            value={filters.minStock}
+            value={tempFilters.minStock}
             onChange={(e) => 
-              onFiltersChange({ ...filters, minStock: parseInt(e.target.value) || 0 })
+              setTempFilters({ ...tempFilters, minStock: parseInt(e.target.value) || 0 })
             }
             placeholder="0"
           />
@@ -173,9 +329,9 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
         <div className="flex items-center space-x-2">
           <Checkbox
             id="inStockOnly"
-            checked={filters.inStockOnly}
+            checked={tempFilters.inStockOnly}
             onCheckedChange={(checked) => 
-              onFiltersChange({ ...filters, inStockOnly: checked as boolean })
+              setTempFilters({ ...tempFilters, inStockOnly: checked as boolean })
             }
           />
           <Label 
@@ -193,13 +349,13 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Max Distance</Label>
                 <span className="text-sm text-muted-foreground">
-                  {filters.maxDistance ? `${filters.maxDistance} km` : 'Any'}
+                  {tempFilters.maxDistance ? `${tempFilters.maxDistance} km` : 'Any'}
                 </span>
               </div>
               <Slider
-                value={[filters.maxDistance || 50]}
+                value={[tempFilters.maxDistance || 50]}
                 onValueChange={([value]) => 
-                  onFiltersChange({ ...filters, maxDistance: value })
+                  setTempFilters({ ...tempFilters, maxDistance: value })
                 }
                 min={1}
                 max={50}
@@ -209,12 +365,12 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="nearby-only" 
-                  checked={filters.nearbyOnly}
+                  checked={tempFilters.nearbyOnly}
                   onCheckedChange={(checked) => 
-                    onFiltersChange({ 
-                      ...filters, 
+                    setTempFilters({ 
+                      ...tempFilters, 
                       nearbyOnly: checked as boolean,
-                      maxDistance: checked ? (filters.maxDistance || 10) : null
+                      maxDistance: checked ? (tempFilters.maxDistance || 10) : null
                     })
                   }
                 />
@@ -225,6 +381,27 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
             </div>
           </>
         )}
+
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-2 pt-4 border-t">
+          <Button 
+            onClick={handleApplyFilters}
+            className="w-full"
+            size="lg"
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Apply Filters
+          </Button>
+          <Button 
+            onClick={handleResetFilters}
+            variant="outline"
+            className="w-full"
+            size="lg"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Reset to Default
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

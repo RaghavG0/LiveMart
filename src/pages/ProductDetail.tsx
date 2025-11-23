@@ -39,13 +39,46 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [deliveredOrder, setDeliveredOrder] = useState<DeliveredOrder | null>(null);
   const [refreshFeedback, setRefreshFeedback] = useState(0);
+  const [existingReview, setExistingReview] = useState<{
+    rating: number;
+    comment: string | null;
+  } | null>(null);
+  const [userSession, setUserSession] = useState<any>(null);
 
   useEffect(() => {
     if (id) {
       fetchProductDetails();
       checkDeliveredOrder();
+      checkExistingReview();
     }
   }, [id]);
+
+  useEffect(() => {
+    // Get user session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserSession(session);
+    });
+  }, []);
+
+  const checkExistingReview = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !id) return;
+
+      const { data } = await supabase
+        .from("reviews")
+        .select("rating, comment")
+        .eq("user_id", session.user.id)
+        .eq("product_id", id)
+        .maybeSingle();
+
+      if (data) {
+        setExistingReview(data);
+      }
+    } catch (error) {
+      console.error("Error checking existing review:", error);
+    }
+  };
 
   const checkDeliveredOrder = async () => {
     try {
@@ -349,15 +382,17 @@ const ProductDetail = () => {
         <div className="mb-12 space-y-8">
           <h2 className="text-2xl font-bold">Customer Reviews</h2>
           
-          {deliveredOrder && (
+          {/* Show feedback form for all authenticated users (open review policy) */}
+          {userSession && (
             <FeedbackForm
               productId={product.id}
               productName={product.name}
-              orderId={deliveredOrder.orderId}
-              existingReview={deliveredOrder.existingReview}
+              orderId={deliveredOrder?.orderId} // Optional - for verified buyer badge
+              existingReview={existingReview || deliveredOrder?.existingReview || undefined}
               onSuccess={() => {
                 setRefreshFeedback((prev) => prev + 1);
                 checkDeliveredOrder();
+                checkExistingReview();
               }}
             />
           )}

@@ -5,7 +5,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import FeedbackRating from "./FeedbackRating";
-import { ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
+import ReviewReplies from "./ReviewReplies";
+import { ChevronLeft, ChevronRight, MessageSquare, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Review {
@@ -16,6 +17,8 @@ interface Review {
   createdAt: string;
   editedAt: string | null;
   isEdited: boolean;
+  verified_buyer?: boolean;
+  product_seller_id?: string;
 }
 
 interface FeedbackSummary {
@@ -37,7 +40,26 @@ const FeedbackList = ({ productId, className }: FeedbackListProps) => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [productSellerId, setProductSellerId] = useState<string | null>(null);
   const itemsPerPage = 5;
+
+  useEffect(() => {
+    // Get current user
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserId(session?.user?.id || null);
+    });
+
+    // Get product seller ID
+    supabase
+      .from("products")
+      .select("seller_id")
+      .eq("id", productId)
+      .single()
+      .then(({ data }) => {
+        setProductSellerId(data?.seller_id || null);
+      });
+  }, [productId]);
 
   useEffect(() => {
     fetchFeedback();
@@ -136,7 +158,15 @@ const FeedbackList = ({ productId, className }: FeedbackListProps) => {
                 <div className="space-y-2">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-semibold">{review.customerName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{review.customerName}</p>
+                        {review.verified_buyer && (
+                          <Badge variant="default" className="text-xs bg-green-600">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Verified Buyer
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-1">
                         <FeedbackRating rating={review.rating} size="sm" />
                         <span className="text-xs text-muted-foreground">
@@ -155,6 +185,15 @@ const FeedbackList = ({ productId, className }: FeedbackListProps) => {
                       {review.comment}
                     </p>
                   )}
+                  
+                  {/* Threaded Replies Section */}
+                  <div className="mt-4 pt-4 border-t">
+                    <ReviewReplies
+                      reviewId={review.id}
+                      productSellerId={productSellerId || undefined}
+                      currentUserId={currentUserId || undefined}
+                    />
+                  </div>
                 </div>
               </div>
             ))}

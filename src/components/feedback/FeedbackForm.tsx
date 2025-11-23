@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 interface FeedbackFormProps {
   productId: string;
   productName: string;
-  orderId: string;
+  orderId?: string; // Optional for open review policy
   existingReview?: {
     rating: number;
     comment: string | null;
@@ -70,10 +70,11 @@ const FeedbackForm = ({
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("submit-feedback", {
+      // Use new submit-review endpoint for open review policy
+      const { data, error } = await supabase.functions.invoke("submit-review", {
         body: {
           productId,
-          orderId,
+          orderId: orderId || undefined, // Optional
           rating,
           comment: comment.trim() || undefined,
           imageIds: uploadedImageIds.length > 0 ? uploadedImageIds : undefined,
