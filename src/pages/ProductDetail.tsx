@@ -390,14 +390,16 @@ const ProductDetail = () => {
               orderId={deliveredOrder?.orderId} // Optional - for verified buyer badge
               existingReview={existingReview || deliveredOrder?.existingReview || undefined}
               onSuccess={async () => {
-                // Immediately refresh feedback list
-                setRefreshFeedback((prev) => prev + 1);
-                // Refresh existing review check
+                // Refresh existing review check first
                 await checkExistingReview();
-                // Also refresh after a short delay to ensure data is saved to database
+                // Wait a moment for database transaction to commit
+                await new Promise(resolve => setTimeout(resolve, 500));
+                // Trigger refresh with incremented value
+                setRefreshFeedback((prev) => prev + 1);
+                // Also refresh after a longer delay as fallback to ensure data is saved
                 setTimeout(() => {
                   setRefreshFeedback((prev) => prev + 1);
-                }, 1000);
+                }, 2000);
               }}
             />
           )}

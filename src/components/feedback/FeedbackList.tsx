@@ -64,29 +64,52 @@ const FeedbackList = ({ productId, className, refreshTrigger, onRefresh }: Feedb
   }, [productId]);
 
   const fetchFeedback = async () => {
-    if (!productId) {
-      console.warn("FeedbackList: productId is required");
+    // Validate productId before proceeding
+    if (!productId || productId === 'undefined' || productId === 'null' || productId.trim() === '') {
+      console.warn("FeedbackList: Invalid or missing productId:", productId);
+      setReviews([]);
+      setSummary({ averageRating: 0, totalReviews: 0 });
+      setTotalPages(1);
+      setLoading(false);
+      return;
+    }
+    
+    // Validate productId is a valid UUID format
+    const productIdString = String(productId).trim();
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(productIdString)) {
+      console.error("FeedbackList: Invalid productId format (not a UUID):", productIdString);
+      setReviews([]);
+      setSummary({ averageRating: 0, totalReviews: 0 });
+      setTotalPages(1);
+      setLoading(false);
       return;
     }
     
     try {
       setLoading(true);
       const requestBody = {
-        productId: String(productId),
-        page: Number(currentPage),
-        limit: Number(itemsPerPage),
+        productId: productIdString,
+        page: Number(currentPage) || 1,
+        limit: Number(itemsPerPage) || 5,
       };
       console.log("Fetching feedback with:", requestBody, "refreshTrigger:", refreshTrigger);
       
       const { data, error } = await supabase.functions.invoke(
         "get-product-feedback",
         {
+          method: "POST",
           body: requestBody,
         }
       );
 
       if (error) {
         console.error("Error fetching feedback:", error);
+        console.error("Error details:", {
+          message: error.message,
+          status: error.status,
+          context: error.context,
+        });
         // Don't throw, just log and show empty state
         setReviews([]);
         setSummary({ averageRating: 0, totalReviews: 0 });
@@ -96,22 +119,38 @@ const FeedbackList = ({ productId, className, refreshTrigger, onRefresh }: Feedb
 
       console.log("Feedback response received:", data);
 
-      if (data?.success) {
+      // Handle both success and error responses
+      if (data?.success === false) {
+        console.error("Failed to fetch feedback:", data?.error, data?.details);
+        setReviews([]);
+        setSummary({ averageRating: 0, totalReviews: 0 });
+        setTotalPages(1);
+        return;
+      }
+
+      if (data?.success === true && data?.data) {
         setReviews(data.data.reviews || []);
         setSummary(data.data.summary || { averageRating: 0, totalReviews: 0 });
         setTotalPages(data.data.pagination?.totalPages || 1);
         console.log("Feedback updated successfully, reviews count:", data.data.reviews?.length || 0);
         // Notify parent that refresh completed
         onRefresh?.();
+      } else if (data?.error) {
+        // Handle error response format
+        console.error("Error in response:", data.error, data.details);
+        setReviews([]);
+        setSummary({ averageRating: 0, totalReviews: 0 });
+        setTotalPages(1);
       } else {
-        // Handle case where success is false
-        console.error("Failed to fetch feedback:", data?.error);
+        // Unknown response format
+        console.warn("Unexpected response format:", data);
         setReviews([]);
         setSummary({ averageRating: 0, totalReviews: 0 });
         setTotalPages(1);
       }
     } catch (error: any) {
-      console.error("Error fetching feedback:", error);
+      console.error("Exception fetching feedback:", error);
+      console.error("Exception stack:", error.stack);
       setReviews([]);
       setSummary({ averageRating: 0, totalReviews: 0 });
       setTotalPages(1);
@@ -121,7 +160,10 @@ const FeedbackList = ({ productId, className, refreshTrigger, onRefresh }: Feedb
   };
 
   useEffect(() => {
-    fetchFeedback();
+    // Only fetch if productId is valid
+    if (productId && productId !== 'undefined' && productId !== 'null') {
+      fetchFeedback();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, currentPage, refreshTrigger]); // refreshTrigger will force re-fetch
 

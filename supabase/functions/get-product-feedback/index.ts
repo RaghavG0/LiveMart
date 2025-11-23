@@ -18,19 +18,42 @@ serve(async (req) => {
     let page: number = 1;
     let limit: number = 10;
 
+    console.log('Request method:', req.method);
+    console.log('Request URL:', req.url);
+
     if (req.method === 'POST') {
       try {
-        const body = await req.json();
+        // Check if request has body
+        const contentType = req.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.warn('POST request without JSON content-type, trying to parse anyway');
+        }
+        
+        const bodyText = await req.text();
+        console.log('Raw POST body text:', bodyText);
+        
+        if (!bodyText || bodyText.trim() === '') {
+          throw new Error('Empty request body');
+        }
+        
+        const body = JSON.parse(bodyText);
+        console.log('Parsed POST body:', body);
         productId = body.productId || body.product_id || null;
         page = parseInt(String(body.page || '1'), 10);
         limit = parseInt(String(body.limit || '10'), 10);
-      } catch (parseError) {
+      } catch (parseError: any) {
         console.error('Error parsing POST body:', parseError);
+        console.error('Parse error details:', parseError.message, parseError.stack);
         // Try URL params as fallback
-        const url = new URL(req.url);
-        productId = url.searchParams.get('productId') || url.searchParams.get('product_id');
-        page = parseInt(url.searchParams.get('page') || '1', 10);
-        limit = parseInt(url.searchParams.get('limit') || '10', 10);
+        try {
+          const url = new URL(req.url);
+          productId = url.searchParams.get('productId') || url.searchParams.get('product_id');
+          page = parseInt(url.searchParams.get('page') || '1', 10);
+          limit = parseInt(url.searchParams.get('limit') || '10', 10);
+          console.log('Falling back to URL params:', { productId, page, limit });
+        } catch (urlError) {
+          console.error('Error parsing URL params:', urlError);
+        }
       }
     } else {
       const url = new URL(req.url);
@@ -39,10 +62,30 @@ serve(async (req) => {
       limit = parseInt(url.searchParams.get('limit') || '10', 10);
     }
 
-    if (!productId) {
-      console.error('Missing productId in request');
+    console.log('Parsed parameters:', { productId, page, limit });
+
+    if (!productId || productId === 'null' || productId === 'undefined') {
+      console.error('Missing or invalid productId in request. Received:', productId);
       return new Response(
-        JSON.stringify({ error: 'productId is required' }),
+        JSON.stringify({ 
+          success: false,
+          error: 'productId is required',
+          details: `Received productId: ${productId}` 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate productId is a valid UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(productId)) {
+      console.error('Invalid productId format:', productId);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Invalid productId format',
+          details: 'productId must be a valid UUID' 
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -101,6 +144,8 @@ serve(async (req) => {
     const offset = (page - 1) * limit;
 
     // Get paginated reviews - use simpler query without complex joins
+    console.log('Fetching reviews for productId:', productId, 'offset:', offset, 'limit:', limit);
+    
     const { data: reviewsData, error: reviewsError, count: reviewsCount } = await supabaseClient
       .from('reviews')
       .select('id, rating, comment, created_at, edited_at, user_id, verified_buyer, product_id', { count: 'exact' })
@@ -110,8 +155,28 @@ serve(async (req) => {
 
     if (reviewsError) {
       console.error('Error fetching reviews:', reviewsError);
-      throw reviewsError;
+      console.error('Reviews error details:', {
+        message: reviewsError.message,
+        details: reviewsError.details,
+        hint: reviewsError.hint,
+        code: reviewsError.code,
+      });
+      
+      // Return error response instead of throwing
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to fetch reviews',
+          details: reviewsError.message,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
+
+    console.log('Reviews fetched:', reviewsData?.length || 0, 'Total count:', reviewsCount);
 
     let reviews: any[] = [];
     const count = reviewsCount || 0;
