@@ -204,7 +204,10 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
                 <span className="text-[10px] text-white/90 hidden sm:block">Cart</span>
               </div>
 
-              <NotificationBell />
+              <div className="flex flex-col items-center gap-0.5">
+                <NotificationBell />
+                <span className="text-[10px] text-white/90 hidden sm:block">Notifications</span>
+              </div>
               
               <div className="flex flex-col items-center gap-0.5">
                 <Button variant="ghost" size="icon" onClick={() => navigate("/account")} className="text-white hover:text-primary hover:bg-white/10">

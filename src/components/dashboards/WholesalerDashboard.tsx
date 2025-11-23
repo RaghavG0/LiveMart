@@ -190,17 +190,32 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
             </Link>
             
             {/* Right Side - Action Buttons */}
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/seller-orders")} title="Manage Orders" className="text-white hover:text-primary hover:bg-white/10">
-                <ShoppingBag className="h-5 w-5" />
-              </Button>
-              <NotificationBell />
-              <Button variant="ghost" size="icon" onClick={() => navigate("/account")} title="Account Settings" className="text-white hover:text-primary hover:bg-white/10">
-                <UserIcon className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out" className="text-white hover:text-primary hover:bg-white/10">
-                <LogOut className="h-5 w-5" />
-              </Button>
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="flex flex-col items-center gap-0.5">
+                <Button variant="ghost" size="icon" onClick={() => navigate("/seller-orders")} title="Manage Orders" className="text-white hover:text-primary hover:bg-white/10">
+                  <ShoppingBag className="h-5 w-5" />
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Orders</span>
+              </div>
+              
+              <div className="flex flex-col items-center gap-0.5">
+                <NotificationBell />
+                <span className="text-[10px] text-white/90 hidden sm:block">Notifications</span>
+              </div>
+              
+              <div className="flex flex-col items-center gap-0.5">
+                <Button variant="ghost" size="icon" onClick={() => navigate("/account")} title="Account Settings" className="text-white hover:text-primary hover:bg-white/10">
+                  <UserIcon className="h-5 w-5" />
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Account</span>
+              </div>
+              
+              <div className="flex flex-col items-center gap-0.5">
+                <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out" className="text-white hover:text-primary hover:bg-white/10">
+                  <LogOut className="h-5 w-5" />
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Logout</span>
+              </div>
             </div>
           </div>
         </div>
