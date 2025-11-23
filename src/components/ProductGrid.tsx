@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Heart } from "lucide-react";
+import { ShoppingCart, Heart, Package } from "lucide-react";
 import { toast } from "sonner";
+import { addToPickupCart, getPickupCart } from "@/lib/pickupCart";
 
 interface Product {
   id: string;
@@ -15,6 +16,7 @@ interface Product {
   stock_quantity: number;
   image_url: string;
   is_available: boolean;
+  seller_id?: string;
   seller_name?: string;
   seller_address?: string;
   distance_km?: number;
@@ -37,12 +39,26 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [wishlistItems, setWishlistItems] = useState<Set<string>>(new Set());
+  const [pickupCartItems, setPickupCartItems] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isPickupMode = searchParams.get('pickup') === 'true';
 
   useEffect(() => {
     fetchProducts();
     fetchWishlist();
-  }, [searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId]);
+    if (isPickupMode) {
+      loadPickupCart();
+    }
+  }, [searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId, isPickupMode]);
+  
+  useEffect(() => {
+    // Refresh pickup cart periodically when in pickup mode
+    if (isPickupMode) {
+      const interval = setInterval(loadPickupCart, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isPickupMode]);
 
   const fetchWishlist = async () => {
     try {
@@ -59,6 +75,47 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
       }
     } catch (error) {
       console.error("Error fetching wishlist:", error);
+    }
+  };
+
+  const loadPickupCart = () => {
+    const pickupCart = getPickupCart();
+    setPickupCartItems(new Set(pickupCart.map(item => item.product.id)));
+  };
+
+  const handleAddToPickupCart = async (product: Product) => {
+    try {
+      // If seller_id is missing, fetch it from the product
+      let sellerId = product.seller_id;
+      if (!sellerId) {
+        // Fetch product details to get seller_id
+        const { data } = await supabase
+          .from("products")
+          .select("seller_id")
+          .eq("id", product.id)
+          .single();
+        sellerId = data?.seller_id || '';
+      }
+      
+      // Map Product to PickupCartItem product format
+      const pickupProduct = {
+        id: product.id,
+        name: product.name,
+        description: product.description || null,
+        price: product.price,
+        stock_quantity: product.stock_quantity,
+        image_url: product.image_url || null,
+        is_available: product.is_available,
+        seller_id: sellerId,
+        seller_name: product.seller_name,
+        seller_address: product.seller_address,
+      };
+      
+      addToPickupCart(pickupProduct, 1);
+      loadPickupCart();
+      toast.success("Added to pickup cart!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add to pickup cart");
     }
   };
 
@@ -357,18 +414,59 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
               </p>
             )}
           </CardContent>
-          <CardFooter>
-            <Button
-              className="w-full bg-primary hover:bg-primary/90 text-white"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAddToCart(product.id);
-              }}
-              disabled={product.stock_quantity === 0}
-            >
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Add to Cart
-            </Button>
+          <CardFooter className="flex flex-col gap-2">
+            {isPickupMode ? (
+              <>
+                {pickupCartItems.has(product.id) ? (
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('/offline-pickup');
+                    }}
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    View in Pickup Cart
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAddToPickupCart(product);
+                    }}
+                    disabled={product.stock_quantity === 0}
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Add to Pickup Cart
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddToCart(product.id);
+                  }}
+                  disabled={product.stock_quantity === 0}
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Add to Regular Cart
+                </Button>
+              </>
+            ) : (
+              <Button
+                className="w-full bg-primary hover:bg-primary/90 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddToCart(product.id);
+                }}
+                disabled={product.stock_quantity === 0}
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Add to Cart
+              </Button>
+            )}
           </CardFooter>
         </Card>
       ))}

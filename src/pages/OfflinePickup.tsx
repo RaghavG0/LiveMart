@@ -4,33 +4,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { ArrowLeft, Store, CalendarIcon, Clock, ShoppingCart, Plus, Minus, X, CheckCircle2, Package, MapPin } from "lucide-react";
+import { ArrowLeft, Store, CalendarIcon, Clock, Plus, Minus, X, CheckCircle2, Package, ShoppingBag, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-
-interface Product {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  stock_quantity: number;
-  image_url: string | null;
-  is_available: boolean;
-  seller_id: string;
-  seller_name?: string;
-  seller_address?: string;
-}
-
-interface CartItem {
-  product: Product;
-  quantity: number;
-}
+import {
+  getPickupCart,
+  updatePickupCartQuantity,
+  removeFromPickupCart,
+  clearPickupCart,
+  getPickupCartTotal,
+  type PickupCartItem,
+} from "@/lib/pickupCart";
 
 const timeSlots = [
   "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -39,18 +28,29 @@ const timeSlots = [
 
 const OfflinePickup = () => {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<PickupCartItem[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState<string>("");
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     checkAuth();
-    fetchProducts();
+    loadCart();
+    
+    // Listen for storage changes (when items are added from homepage)
+    const handleStorageChange = () => {
+      loadCart();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    // Also check periodically for changes within the same tab
+    const interval = setInterval(loadCart, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, []);
 
   const checkAuth = async () => {
@@ -63,85 +63,50 @@ const OfflinePickup = () => {
     setUser(session.user);
   };
 
-  const fetchProducts = async () => {
+  const loadCart = () => {
+    const pickupCart = getPickupCart();
+    setCart(pickupCart);
+  };
+
+  const handleUpdateQuantity = (productId: string, delta: number) => {
+    const item = cart.find(item => item.product.id === productId);
+    if (!item) return;
+    
+    const newQuantity = item.quantity + delta;
+    if (newQuantity <= 0) {
+      handleRemoveItem(productId);
+      return;
+    }
+    
+    if (newQuantity > item.product.stock_quantity) {
+      toast.error(`Cannot add more. Only ${item.product.stock_quantity} available.`);
+      return;
+    }
+    
     try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("products")
-        .select(`
-          *,
-          profiles:seller_id (
-            full_name,
-            location_address
-          )
-        `)
-        .eq("is_available", true)
-        .gt("stock_quantity", 0)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      const productsWithSeller = (data || []).map((product: any) => ({
-        ...product,
-        seller_name: product.profiles?.full_name || "Unknown Seller",
-        seller_address: product.profiles?.location_address || "",
-      }));
-
-      setProducts(productsWithSeller);
+      updatePickupCartQuantity(productId, newQuantity);
+      loadCart();
     } catch (error: any) {
-      console.error("Error fetching products:", error);
-      toast.error("Failed to load products");
-    } finally {
-      setLoading(false);
+      toast.error(error.message || "Failed to update quantity");
     }
   };
 
-  const addToCart = (product: Product) => {
-    const existingItem = cart.find(item => item.product.id === product.id);
-    if (existingItem) {
-      if (existingItem.quantity >= product.stock_quantity) {
-        toast.error("Cannot add more. Stock limit reached.");
-        return;
-      }
-      setCart(cart.map(item =>
-        item.product.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      setCart([...cart, { product, quantity: 1 }]);
+  const handleRemoveItem = (productId: string) => {
+    try {
+      removeFromPickupCart(productId);
+      loadCart();
+      toast.success("Item removed from cart");
+    } catch (error) {
+      toast.error("Failed to remove item");
     }
-    toast.success("Added to cart");
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(cart.filter(item => item.product.id !== productId));
-    toast.success("Removed from cart");
+  const handleBrowseProducts = () => {
+    // Navigate to homepage with pickup mode parameter
+    navigate("/?pickup=true");
   };
 
-  const updateQuantity = (productId: string, delta: number) => {
-    setCart(cart.map(item => {
-      if (item.product.id === productId) {
-        const newQuantity = item.quantity + delta;
-        if (newQuantity <= 0) {
-          return item; // Don't remove, just don't update
-        }
-        if (newQuantity > item.product.stock_quantity) {
-          toast.error("Cannot add more. Stock limit reached.");
-          return item;
-        }
-        return { ...item, quantity: newQuantity };
-      }
-      return item;
-    }));
-  };
-
-  const totalAmount = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const totalAmount = getPickupCartTotal();
 
   const handleCheckout = async () => {
     if (cart.length === 0) {
@@ -186,6 +151,7 @@ const OfflinePickup = () => {
 
       if (data?.success) {
         toast.success("Order placed successfully! Check your email for confirmation and reminder.");
+        clearPickupCart();
         setCart([]);
         setSelectedDate(undefined);
         setSelectedTime("");
@@ -236,110 +202,118 @@ const OfflinePickup = () => {
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Select Products for Pickup</CardTitle>
-                <CardDescription>Choose items you want to pick up from the store</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Select Products for Pickup</CardTitle>
+                    <CardDescription>Choose items you want to pick up from the store</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="mb-4">
-                  <Input
-                    placeholder="Search products..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full"
-                  />
-                </div>
-
-                {loading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[1, 2, 3, 4].map(i => (
-                      <Card key={i} className="animate-pulse">
-                        <CardContent className="p-4">
-                          <div className="h-32 bg-muted rounded mb-2"></div>
-                          <div className="h-4 bg-muted rounded mb-2"></div>
-                          <div className="h-4 bg-muted rounded w-2/3"></div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : filteredProducts.length === 0 ? (
+                {cart.length === 0 ? (
                   <div className="text-center py-12">
                     <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground">No products found</p>
+                    <p className="text-muted-foreground mb-4">No products selected yet</p>
+                    <Button
+                      onClick={handleBrowseProducts}
+                      size="lg"
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      <ShoppingBag className="h-5 w-5 mr-2" />
+                      Browse All Products
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </Button>
+                    <p className="text-sm text-muted-foreground mt-4">
+                      Browse the full catalog to add items to your pickup order
+                    </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredProducts.map((product) => {
-                      const cartItem = cart.find(item => item.product.id === product.id);
-                      return (
-                        <Card key={product.id} className="overflow-hidden">
-                          {product.image_url && (
-                            <div className="aspect-video w-full overflow-hidden bg-muted">
-                              <img
-                                src={product.image_url}
-                                alt={product.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          )}
-                          <CardContent className="p-4">
-                            <h3 className="font-semibold mb-1">{product.name}</h3>
-                            {product.description && (
-                              <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                                {product.description}
-                              </p>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm text-muted-foreground">
+                        {cart.length} item{cart.length > 1 ? 's' : ''} in your pickup cart
+                      </p>
+                      <Button
+                        onClick={handleBrowseProducts}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add More
+                        <ExternalLink className="h-4 w-4 ml-2" />
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {cart.map((item) => (
+                        <Card key={item.product.id} className="overflow-hidden">
+                          <div className="flex gap-4 p-4">
+                            {item.product.image_url && (
+                              <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+                                <img
+                                  src={item.product.image_url}
+                                  alt={item.product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
                             )}
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-lg font-bold text-primary">
-                                ₹{product.price.toFixed(2)}
-                              </span>
-                              <Badge variant="outline">
-                                Stock: {product.stock_quantity}
-                              </Badge>
-                            </div>
-                            {cartItem ? (
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold mb-1 truncate">{item.product.name}</h3>
+                              {item.product.description && (
+                                <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                                  {item.product.description}
+                                </p>
+                              )}
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => updateQuantity(product.id, -1)}
-                                  >
-                                    <Minus className="h-4 w-4" />
-                                  </Button>
-                                  <span className="font-semibold w-8 text-center">
-                                    {cartItem.quantity}
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleUpdateQuantity(item.product.id, -1)}
+                                    >
+                                      <Minus className="h-4 w-4" />
+                                    </Button>
+                                    <span className="font-semibold w-8 text-center">
+                                      {item.quantity}
+                                    </span>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleUpdateQuantity(item.product.id, 1)}
+                                      disabled={item.quantity >= item.product.stock_quantity}
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <span className="text-sm text-muted-foreground">
+                                    × ₹{item.product.price.toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-bold text-primary">
+                                    ₹{(item.quantity * item.product.price).toFixed(2)}
                                   </span>
                                   <Button
                                     size="sm"
-                                    variant="outline"
-                                    onClick={() => updateQuantity(product.id, 1)}
-                                    disabled={cartItem.quantity >= product.stock_quantity}
+                                    variant="ghost"
+                                    onClick={() => handleRemoveItem(item.product.id)}
+                                    className="text-destructive hover:text-destructive"
                                   >
-                                    <Plus className="h-4 w-4" />
+                                    <X className="h-4 w-4" />
                                   </Button>
                                 </div>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => removeFromCart(product.id)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
                               </div>
-                            ) : (
-                              <Button
-                                className="w-full"
-                                onClick={() => addToCart(product)}
-                                disabled={product.stock_quantity === 0}
-                              >
-                                <ShoppingCart className="h-4 w-4 mr-2" />
-                                Add to Cart
-                              </Button>
-                            )}
-                          </CardContent>
+                              {item.product.seller_name && (
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  Seller: {item.product.seller_name}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         </Card>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>

@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar, MessageSquare, ShoppingBag, Menu, Store } from "lucide-react";
+import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar, MessageSquare, ShoppingBag, Menu, Store, ArrowRight } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { getPickupCartItemCount } from "@/lib/pickupCart";
 import { toast } from "sonner";
 import { useNavigate, Link } from "react-router-dom";
 import ProductGrid from "@/components/ProductGrid";
@@ -39,12 +41,24 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
     categoryId: null,
     subcategoryId: null,
   });
+  const [searchParams] = useSearchParams();
+  const isPickupMode = searchParams.get('pickup') === 'true';
+  const [pickupCartCount, setPickupCartCount] = useState(0);
 
   useEffect(() => {
     fetchMaxPrice();
     fetchUserProfile();
     fetchCounts();
-  }, []);
+    if (isPickupMode) {
+      updatePickupCartCount();
+      const interval = setInterval(updatePickupCartCount, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isPickupMode]);
+  
+  const updatePickupCartCount = () => {
+    setPickupCartCount(getPickupCartItemCount());
+  };
 
   const fetchCounts = async () => {
     try {
@@ -252,6 +266,28 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
             </Button>
           </div>
         </div>
+
+        {/* Pickup Mode Banner */}
+        {isPickupMode && (
+          <div className="mb-6 p-4 bg-green-50 border-2 border-green-500 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Package className="h-6 w-6 text-green-600" />
+              <div>
+                <h3 className="font-semibold text-green-900">Store Pickup Mode</h3>
+                <p className="text-sm text-green-700">
+                  Products you add will go to your pickup cart. {pickupCartCount > 0 && `${pickupCartCount} item${pickupCartCount > 1 ? 's' : ''} selected.`}
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => navigate('/offline-pickup')}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Go to Pickup Page
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        )}
 
         {/* Location Permission Banner */}
         {!location && showLocationBanner && (
