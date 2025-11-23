@@ -11,12 +11,32 @@ serve(async (req: Request) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log("verify-login-otp called:", req.method, req.url);
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { email, otp, password } = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid request format",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    const { email, otp, password } = requestBody;
+    console.log("Received verification request for email:", email);
 
     // Validate required fields
     if (!email || !otp || !password) {
@@ -51,6 +71,8 @@ serve(async (req: Request) => {
 
     // Check if OTP exists
     if (!otpRecord) {
+      console.log(`❌ Invalid OTP provided for ${email}`);
+      
       // Increment attempts for the most recent OTP if it exists
       const { data: recentOtp } = await supabase
         .from("signup_otps")
@@ -67,12 +89,14 @@ serve(async (req: Request) => {
           .from("signup_otps")
           .update({ attempts: (recentOtp.attempts || 0) + 1 })
           .eq("id", recentOtp.id);
+        console.log(`Updated attempt count for OTP ${recentOtp.id}`);
       }
 
       return new Response(
         JSON.stringify({
           success: false,
           error: "Invalid OTP. Please try again.",
+          message: "The OTP code you entered is incorrect.",
         }),
         {
           status: 400,
@@ -80,6 +104,8 @@ serve(async (req: Request) => {
         }
       );
     }
+
+    console.log(`✓ OTP record found for ${email}, checking expiration...`);
 
     // Check if OTP is expired
     const expiresAt = new Date(otpRecord.expires_at);

@@ -180,7 +180,20 @@ const VerifyLoginOTP = () => {
         },
       });
 
-      if (error) throw error;
+      // Handle edge function errors
+      if (error) {
+        console.error("Edge function error:", error);
+        // Try to extract error message from error object
+        const errorMessage = error.message || error.context?.message || "Failed to verify OTP";
+        throw new Error(errorMessage);
+      }
+
+      // Handle non-success responses (400, etc.)
+      if (!data?.success) {
+        const errorMessage = data?.error || "Verification failed";
+        console.error("OTP verification failed:", errorMessage);
+        throw new Error(errorMessage);
+      }
 
       if (data?.success && data?.session) {
         // Set the session using the tokens returned
@@ -205,20 +218,45 @@ const VerifyLoginOTP = () => {
       }
     } catch (error: any) {
       console.error("Error verifying OTP:", error);
-      const errorMessage = error.message || "Failed to verify OTP";
       
-      if (errorMessage.includes("Invalid OTP") || errorMessage.includes("OTP Mismatch")) {
-        setOtpError("Invalid OTP. Please try again.");
-      } else if (errorMessage.includes("expired")) {
-        setOtpError("OTP has expired. Please request a new one.");
+      // Extract error message from various possible formats
+      let errorMessage = "Failed to verify OTP";
+      if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.context?.message) {
+        errorMessage = error.context.message;
+      } else if (error?.error) {
+        errorMessage = error.error;
+      }
+      
+      // Provide user-friendly error messages
+      let userFriendlyMessage = errorMessage;
+      if (errorMessage.includes("Invalid OTP") || errorMessage.includes("OTP Mismatch") || errorMessage.includes("Invalid OTP. Please try again")) {
+        userFriendlyMessage = "The OTP you entered is incorrect. Please try again.";
+        setOtpError(userFriendlyMessage);
+      } else if (errorMessage.includes("expired") || errorMessage.includes("OTP has expired")) {
+        userFriendlyMessage = "OTP has expired. Please request a new one.";
+        setOtpError(userFriendlyMessage);
+      } else if (errorMessage.includes("Too many failed attempts")) {
+        userFriendlyMessage = "Too many failed attempts. Please request a new OTP.";
+        setOtpError(userFriendlyMessage);
+      } else if (errorMessage.includes("Missing required fields")) {
+        userFriendlyMessage = "Please enter a complete 6-digit OTP.";
+        setOtpError(userFriendlyMessage);
+      } else if (errorMessage.includes("Invalid credentials")) {
+        userFriendlyMessage = "Invalid credentials. Please sign in again.";
+        setOtpError(userFriendlyMessage);
       } else {
-        setOtpError(errorMessage);
+        userFriendlyMessage = "Failed to verify OTP. Please try again.";
+        setOtpError(errorMessage); // Show technical error in field, but user-friendly in toast
       }
       
       // Clear OTP on error
       setOtp(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
-      toast.error(errorMessage);
+      toast.error(userFriendlyMessage);
     } finally {
       setLoading(false);
     }

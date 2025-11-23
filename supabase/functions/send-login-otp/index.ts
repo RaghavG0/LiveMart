@@ -11,12 +11,72 @@ const generateOTP = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+// Exchange refresh token for access token
+const getAccessTokenFromRefreshToken = async (): Promise<string | null> => {
+  try {
+    const GMAIL_CLIENT_ID = Deno.env.get("GMAIL_CLIENT_ID");
+    const GMAIL_CLIENT_SECRET = Deno.env.get("GMAIL_CLIENT_SECRET");
+    const GMAIL_REFRESH_TOKEN = Deno.env.get("GMAIL_REFRESH_TOKEN");
+
+    if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) {
+      console.log("Missing OAuth credentials for refresh token flow");
+      return null;
+    }
+
+    console.log("Exchanging refresh token for access token...");
+    
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: GMAIL_CLIENT_ID,
+        client_secret: GMAIL_CLIENT_SECRET,
+        refresh_token: GMAIL_REFRESH_TOKEN,
+        grant_type: 'refresh_token',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Failed to refresh access token:', {
+        status: response.status,
+        error: errorText,
+      });
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('✓ Successfully obtained access token');
+    return data.access_token;
+  } catch (error: any) {
+    console.error('❌ Error refreshing access token:', error);
+    return null;
+  }
+};
+
 // Send email OTP using Gmail SMTP via Gmail API
-const sendEmailOTP = async (email: string, otp: string): Promise<boolean> => {
+const sendEmailOTP = async (email: string, otp: string): Promise<{ success: boolean; error?: string }> => {
   try {
     const GMAIL_USER = Deno.env.get("GMAIL_USER") || Deno.env.get("GMAIL_EMAIL");
     const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
     const GMAIL_ACCESS_TOKEN = Deno.env.get("GMAIL_ACCESS_TOKEN");
+    const GMAIL_CLIENT_ID = Deno.env.get("GMAIL_CLIENT_ID");
+    const GMAIL_CLIENT_SECRET = Deno.env.get("GMAIL_CLIENT_SECRET");
+    const GMAIL_REFRESH_TOKEN = Deno.env.get("GMAIL_REFRESH_TOKEN");
+    
+    console.log("Email configuration check:", {
+      hasGmailUser: !!GMAIL_USER,
+      hasGmailAccessToken: !!GMAIL_ACCESS_TOKEN,
+      hasOAuthCredentials: !!(GMAIL_CLIENT_ID && GMAIL_CLIENT_SECRET && GMAIL_REFRESH_TOKEN),
+      hasGmailAppPassword: !!GMAIL_APP_PASSWORD,
+      hasEmailJS: !!(
+        Deno.env.get("EMAILJS_SERVICE_ID") &&
+        Deno.env.get("EMAILJS_TEMPLATE_ID") &&
+        Deno.env.get("EMAILJS_PUBLIC_KEY")
+      ),
+    });
     
     // HTML email content for login OTP
     const emailContent = `
@@ -43,7 +103,75 @@ const sendEmailOTP = async (email: string, otp: string): Promise<boolean> => {
       </html>
     `;
 
-    // Method 1: Use Gmail API with OAuth Access Token (Recommended)
+    // Method 1a: Use Gmail API with OAuth Refresh Token (Preferred - auto-refreshes)
+    if (GMAIL_CLIENT_ID && GMAIL_CLIENT_SECRET && GMAIL_REFRESH_TOKEN) {
+      try {
+        // Get access token from refresh token
+        const accessToken = await getAccessTokenFromRefreshToken();
+        
+        if (!accessToken) {
+          console.error('❌ Failed to obtain access token from refresh token');
+          // Don't return yet, try direct access token or other methods
+        } else {
+          const message = [
+            `To: ${email}`,
+            `From: ${GMAIL_USER || 'noreply@livemart.com'} <${GMAIL_USER || 'noreply@livemart.com'}>`,
+            `Subject: Your LiveMart Login Verification Code`,
+            `MIME-Version: 1.0`,
+            `Content-Type: text/html; charset=utf-8`,
+            ``,
+            emailContent
+          ].join('\r\n');
+          
+          // Gmail API requires base64url encoding
+          const encodedMessage = btoa(message)
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+          
+          const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              raw: encodedMessage,
+            }),
+          });
+          
+          if (response.ok) {
+            const responseData = await response.json();
+            console.log(`✓ Login OTP sent to ${email} via Gmail API (OAuth refresh token). Message ID: ${responseData.id}`);
+            return { success: true };
+          } else {
+            const errorText = await response.text();
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              errorData = { error: errorText };
+            }
+            console.error('❌ Gmail API error (OAuth refresh token):', {
+              status: response.status,
+              statusText: response.statusText,
+              error: errorData,
+              rawResponse: errorText,
+            });
+            // Don't return yet, try direct access token or other methods
+          }
+        }
+      } catch (apiError: any) {
+        console.error('❌ Gmail API request failed (OAuth refresh token):', {
+          error: apiError.message,
+          stack: apiError.stack,
+          name: apiError.name,
+        });
+        // Don't return yet, try direct access token or other methods
+      }
+    }
+
+    // Method 1b: Use Gmail API with Direct Access Token (Fallback)
     if (GMAIL_ACCESS_TOKEN) {
       try {
         const message = [
@@ -74,14 +202,32 @@ const sendEmailOTP = async (email: string, otp: string): Promise<boolean> => {
         });
         
         if (response.ok) {
-          console.log(`✓ Login OTP sent to ${email} via Gmail API`);
-          return true;
+          const responseData = await response.json();
+          console.log(`✓ Login OTP sent to ${email} via Gmail API (direct access token). Message ID: ${responseData.id}`);
+          return { success: true };
         } else {
           const errorText = await response.text();
-          console.error('Gmail API error:', errorText);
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: errorText };
+          }
+          console.error('❌ Gmail API error (direct access token):', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData,
+            rawResponse: errorText,
+          });
+          // Don't return yet, try next method
         }
-      } catch (apiError) {
-        console.error('Gmail API request failed:', apiError);
+      } catch (apiError: any) {
+        console.error('❌ Gmail API request failed (direct access token):', {
+          error: apiError.message,
+          stack: apiError.stack,
+          name: apiError.name,
+        });
+        // Don't return yet, try next method
       }
     }
 
@@ -110,22 +256,49 @@ const sendEmailOTP = async (email: string, otp: string): Promise<boolean> => {
         });
 
         if (response.ok) {
-          console.log(`✓ Login OTP sent to ${email} via EmailJS`);
-          return true;
+          const responseData = await response.json();
+          console.log(`✓ Login OTP sent to ${email} via EmailJS. Response:`, responseData);
+          return { success: true };
+        } else {
+          const errorText = await response.text();
+          console.error('❌ EmailJS error:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+          });
+          // Don't return yet, try mock as last resort
         }
-      } catch (emailjsError) {
-        console.error('EmailJS request failed:', emailjsError);
+      } catch (emailjsError: any) {
+        console.error('❌ EmailJS request failed:', {
+          error: emailjsError.message,
+          stack: emailjsError.stack,
+          name: emailjsError.name,
+        });
+        // Don't return yet, try mock as last resort
       }
     }
 
     // Method 3: Mock/Development fallback (log to console)
-    console.log(`[MOCK] Login OTP for ${email}: ${otp}`);
-    console.log(`In production, configure Gmail API or EmailJS to send real emails.`);
-    return true; // Return true in development
+    console.warn(`⚠️ [MOCK MODE] Login OTP for ${email}: ${otp}`);
+    console.warn(`⚠️ No email service configured. Configure one of the following:`);
+    console.warn(`   - Gmail API: Set GMAIL_USER and GMAIL_ACCESS_TOKEN environment variables`);
+    console.warn(`   - EmailJS: Set EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, and EMAILJS_PUBLIC_KEY`);
+    console.warn(`⚠️ Email NOT sent in production! This should only be used for development.`);
+    return { 
+      success: false, 
+      error: "Email service not configured. OTP was not sent. Please configure Gmail API or EmailJS in production." 
+    };
     
-  } catch (error) {
-    console.error("Error sending email OTP:", error);
-    return false;
+  } catch (error: any) {
+    console.error("❌ Error sending email OTP:", {
+      error: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
+    return { 
+      success: false, 
+      error: `Failed to send email: ${error.message}` 
+    };
   }
 };
 
@@ -271,16 +444,19 @@ serve(async (req: Request) => {
     console.log("OTP stored successfully:", otpData.id);
 
     // Send OTP via email
-    const sendSuccess = await sendEmailOTP(email, otp);
+    const emailResult = await sendEmailOTP(email, otp);
 
-    if (!sendSuccess) {
+    if (!emailResult.success) {
       // Delete the OTP if sending failed
       await supabase.from("signup_otps").delete().eq("id", otpData.id);
+      
+      console.error("❌ Email sending failed:", emailResult.error);
       
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Failed to send OTP. Please try again.",
+          error: emailResult.error || "Failed to send OTP. Please check email service configuration.",
+          details: "Check Supabase Edge Function logs for email service configuration errors.",
         }),
         {
           status: 500,
@@ -288,6 +464,8 @@ serve(async (req: Request) => {
         }
       );
     }
+    
+    console.log(`✓ Login OTP successfully sent to ${email}`);
 
     return new Response(
       JSON.stringify({
