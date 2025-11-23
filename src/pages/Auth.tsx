@@ -252,7 +252,7 @@ const Auth = () => {
   };
 
   // =====================================================
-  // MODIFIED SIGN IN FUNCTION - Detects new users and triggers OTP flow
+  // MODIFIED SIGN IN FUNCTION - Requires OTP Verification
   // =====================================================
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,44 +260,47 @@ const Auth = () => {
     setOtpError("");
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Step 1: Validate credentials and send OTP (DO NOT authenticate yet)
+      const { data, error } = await supabase.functions.invoke("send-login-otp", {
+        body: {
+          email,
+          password, // Password is needed for credential validation
+        },
       });
 
       if (error) {
-        // Check if error is due to user not existing (new user)
-        // Error codes: "Invalid login credentials" or user doesn't exist
-        if (error.message?.includes("Invalid login credentials") || error.message?.includes("Invalid") || error.code === "invalid_credentials") {
-          // New user detected - trigger OTP flow
-          // CRITICAL FIX: Update state to show OTP form
-          setOtpEmail(email);
-          setShowOtp(true); // THIS IS THE KEY STATE TRANSITION
-          setOtpSent(false); // Reset OTP sent status
-          setOtp(["", "", "", "", "", ""]); // Clear any previous OTP
-          
-          // Send OTP automatically for new user
-          await sendOTP(email);
-          
-          toast.info("Account not found. OTP sent to your email for verification.");
-          return;
-        }
         throw error;
       }
 
-      // Successful login
-      // Reset OTP state for next time
-      setShowOtp(false);
-      setOtpSent(false);
-      setOtp(["", "", "", "", "", ""]);
-      setOtpError("");
-      toast.success("Signed in successfully!");
-      navigate("/");
-    } catch (error: any) {
-      // Only show error if we haven't triggered OTP flow
-      if (!showOtp) {
-        toast.error(error.message || "Error signing in");
+      if (!data?.success) {
+        // Invalid credentials or other error
+        const errorMsg = data?.error || "Failed to send OTP";
+        if (errorMsg.includes("Invalid email") || errorMsg.includes("Invalid password")) {
+          toast.error("Invalid email or password");
+        } else {
+          toast.error(errorMsg);
+        }
+        return;
       }
+
+      // Step 2: Store credentials temporarily in sessionStorage for OTP verification
+      // This is needed because we'll need the password again to authenticate after OTP verification
+      sessionStorage.setItem(
+        "loginData",
+        JSON.stringify({
+          email,
+          password, // Stored temporarily - will be cleared after successful login
+          timestamp: Date.now(), // For security - expire after 15 minutes
+        })
+      );
+
+      // Step 3: Redirect to OTP verification page
+      toast.success("OTP sent to your email. Please verify to continue.");
+      navigate("/verify-login-otp");
+      
+    } catch (error: any) {
+      console.error("Error in login flow:", error);
+      toast.error(error.message || "Error signing in. Please try again.");
     } finally {
       setLoading(false);
     }
