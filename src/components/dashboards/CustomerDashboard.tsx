@@ -40,7 +40,6 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
     maxDistance: null,
     nearbyOnly: false,
     categoryId: null,
-    subcategoryId: null,
   });
   const [searchParams] = useSearchParams();
   const isPickupMode = searchParams.get('pickup') === 'true';
@@ -393,7 +392,6 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
             maxDistance={filters.maxDistance}
             sellerId={selectedSellerId}
             categoryId={filters.categoryId}
-            subcategoryId={filters.subcategoryId}
           />
         ) : (
           <MapView 

@@ -32,10 +32,9 @@ interface ProductGridProps {
   maxDistance?: number | null;
   sellerId?: string | null;
   categoryId?: string | null;
-  subcategoryId?: string | null;
 }
 
-const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId, categoryId, subcategoryId }: ProductGridProps) => {
+const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId, categoryId }: ProductGridProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [wishlistItems, setWishlistItems] = useState<Set<string>>(new Set());
@@ -50,7 +49,7 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
     if (isPickupMode) {
       loadPickupCart();
     }
-  }, [searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId, isPickupMode]);
+  }, [searchQuery, priceRange, minStock, inStockOnly, sortBy, userLocation, maxDistance, sellerId, categoryId, isPickupMode]);
   
   useEffect(() => {
     // Refresh pickup cart periodically when in pickup mode
@@ -151,10 +150,8 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
           sortedData = sortedData.filter(p => p.seller_id === sellerId);
         }
 
-        // Apply category/subcategory filter client-side if needed
-        if (subcategoryId) {
-          sortedData = sortedData.filter(p => p.category_id === subcategoryId);
-        } else if (categoryId) {
+        // Apply category filter client-side if needed
+        if (categoryId) {
           sortedData = sortedData.filter(p => p.category_id === categoryId);
         }
 
@@ -193,9 +190,7 @@ const ProductGrid = ({ searchQuery, priceRange, minStock, inStockOnly, sortBy, u
           query = query.eq("seller_id", sellerId);
         }
 
-        if (subcategoryId) {
-          query = query.eq("category_id", subcategoryId);
-        } else if (categoryId) {
+        if (categoryId) {
           query = query.eq("category_id", categoryId);
         }
 

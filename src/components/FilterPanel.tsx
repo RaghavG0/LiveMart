@@ -18,7 +18,6 @@ export interface FilterState {
   maxDistance: number | null;
   nearbyOnly: boolean;
   categoryId: string | null;
-  subcategoryId: string | null;
 }
 
 interface Category {
@@ -43,37 +42,22 @@ const getDefaultFilters = (maxPrice: number): FilterState => ({
   maxDistance: null,
   nearbyOnly: false,
   categoryId: null,
-  subcategoryId: null,
 });
 
 const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false, variant = "sidebar" }: FilterPanelProps) => {
   const [tempFilters, setTempFilters] = useState<FilterState>(filters);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [subcategories, setSubcategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Initialize tempFilters when filters prop changes (from parent)
   useEffect(() => {
     setTempFilters(filters);
-    // Reset subcategory when category changes externally
-    if (filters.categoryId !== tempFilters.categoryId) {
-      setTempFilters(prev => ({ ...prev, subcategoryId: null }));
-    }
   }, [filters]);
 
   // Fetch categories on mount
   useEffect(() => {
     fetchCategories();
   }, []);
-
-  // Fetch subcategories when category changes
-  useEffect(() => {
-    if (tempFilters.categoryId) {
-      fetchSubcategories(tempFilters.categoryId);
-    } else {
-      setSubcategories([]);
-    }
-  }, [tempFilters.categoryId]);
 
   const fetchCategories = async () => {
     try {
@@ -89,27 +73,6 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false, 
       console.error("Error fetching categories:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchSubcategories = async (categoryId: string) => {
-    try {
-      // For now, subcategories are just categories. 
-      // If you have a separate subcategories table, update this query
-      // For this implementation, we'll use categories as subcategories
-      // You can extend this later with a proper subcategories table
-      const { data, error } = await supabase
-        .from("categories")
-        .select("id, name")
-        .order("name");
-
-      if (error) throw error;
-      // For now, show all categories as subcategories
-      // In production, you'd filter by parent_id or category_id
-      setSubcategories(data || []);
-    } catch (error) {
-      console.error("Error fetching subcategories:", error);
-      setSubcategories([]);
     }
   };
 
@@ -159,8 +122,7 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false, 
             onValueChange={(value) => 
               setTempFilters({ 
                 ...tempFilters, 
-                categoryId: value === "all" ? null : value,
-                subcategoryId: null // Reset subcategory when category changes
+                categoryId: value === "all" ? null : value
               })
             }
           >
@@ -178,35 +140,6 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false, 
           </Select>
         </div>
 
-        {/* Subcategory Filter - Only show if category is selected */}
-        {tempFilters.categoryId && (
-          <div className="space-y-2">
-            <Label htmlFor="subcategory" className="text-sm font-medium">
-              Subcategory
-            </Label>
-            <Select
-              value={tempFilters.subcategoryId || "all"}
-              onValueChange={(value) => 
-                setTempFilters({ 
-                  ...tempFilters, 
-                  subcategoryId: value === "all" ? null : value
-                })
-              }
-            >
-              <SelectTrigger id="subcategory">
-                <SelectValue placeholder="All Subcategories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Subcategories</SelectItem>
-                {subcategories.map((subcategory) => (
-                  <SelectItem key={subcategory.id} value={subcategory.id}>
-                    {subcategory.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
         {/* Price Range */}
         <div className="space-y-3">
           <Label className="text-sm font-medium">Price Range</Label>
