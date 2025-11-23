@@ -152,18 +152,31 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
     }
   };
 
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+
   const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: newStatus })
-        .eq("id", orderId);
+      setUpdatingStatus(orderId);
+      
+      const { data, error } = await supabase.functions.invoke("update-order-status", {
+        body: {
+          orderId,
+          newStatus,
+        },
+      });
 
       if (error) throw error;
-      toast.success("Order status updated successfully");
-      fetchRetailerOrders();
+
+      if (data?.success) {
+        toast.success(data.message || "Order status updated successfully");
+        fetchRetailerOrders();
+      } else {
+        throw new Error(data?.error || "Failed to update order status");
+      }
     } catch (error: any) {
       toast.error("Failed to update order status: " + error.message);
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -386,9 +399,10 @@ const WholesalerDashboard = ({ user }: WholesalerDashboardProps) => {
                             <Select
                               value={order.status}
                               onValueChange={(value) => handleStatusUpdate(order.id, value as OrderStatus)}
+                              disabled={updatingStatus === order.id}
                             >
-                              <SelectTrigger className="w-32">
-                                <SelectValue />
+                              <SelectTrigger className="w-32" disabled={updatingStatus === order.id}>
+                                <SelectValue placeholder={updatingStatus === order.id ? "Updating..." : undefined} />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="pending">Pending</SelectItem>

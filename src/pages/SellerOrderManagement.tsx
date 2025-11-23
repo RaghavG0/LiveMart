@@ -90,20 +90,32 @@ const SellerOrderManagement = () => {
     }
   };
 
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+
   const updateOrderStatus = async (orderId: string, newStatus: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled") => {
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq("id", orderId);
+      setUpdatingStatus(orderId);
+      
+      const { data, error } = await supabase.functions.invoke("update-order-status", {
+        body: {
+          orderId,
+          newStatus,
+        },
+      });
 
       if (error) throw error;
-      
-      toast.success(`Order ${newStatus}`);
-      fetchOrders();
-    } catch (error) {
+
+      if (data?.success) {
+        toast.success(data.message || `Order status updated to ${newStatus}`);
+        fetchOrders();
+      } else {
+        throw new Error(data?.error || "Failed to update order status");
+      }
+    } catch (error: any) {
       console.error("Error updating order:", error);
-      toast.error("Failed to update order status");
+      toast.error(error.message || "Failed to update order status");
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -165,17 +177,19 @@ const SellerOrderManagement = () => {
                   variant="outline"
                   onClick={() => updateOrderStatus(order.id, "cancelled")}
                   className="gap-1"
+                  disabled={updatingStatus === order.id}
                 >
                   <XCircle className="w-4 h-4" />
-                  Reject
+                  {updatingStatus === order.id ? "Updating..." : "Reject"}
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => updateOrderStatus(order.id, "confirmed")}
                   className="gap-1"
+                  disabled={updatingStatus === order.id}
                 >
                   <CheckCircle className="w-4 h-4" />
-                  Confirm
+                  {updatingStatus === order.id ? "Updating..." : "Confirm"}
                 </Button>
               </>
             )}
@@ -184,9 +198,10 @@ const SellerOrderManagement = () => {
                 size="sm"
                 onClick={() => updateOrderStatus(order.id, "processing")}
                 className="gap-1"
+                disabled={updatingStatus === order.id}
               >
                 <Package className="w-4 h-4" />
-                Start Processing
+                {updatingStatus === order.id ? "Updating..." : "Start Processing"}
               </Button>
             )}
             {order.status === "processing" && (
@@ -194,6 +209,7 @@ const SellerOrderManagement = () => {
                 size="sm"
                 onClick={() => updateOrderStatus(order.id, "shipped")}
                 className="gap-1"
+                disabled={updatingStatus === order.id}
               >
                 <Truck className="w-4 h-4" />
                 Mark as Shipped
@@ -204,9 +220,10 @@ const SellerOrderManagement = () => {
                 size="sm"
                 onClick={() => updateOrderStatus(order.id, "delivered")}
                 className="gap-1"
+                disabled={updatingStatus === order.id}
               >
                 <CheckCircle className="w-4 h-4" />
-                Mark as Delivered
+                {updatingStatus === order.id ? "Updating..." : "Mark as Delivered"}
               </Button>
             )}
           </div>
