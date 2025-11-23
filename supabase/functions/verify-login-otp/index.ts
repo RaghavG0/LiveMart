@@ -145,18 +145,43 @@ serve(async (req: Request) => {
       })
       .eq("id", otpRecord.id);
 
-    // Verify credentials again before authenticating
-    // This ensures the password is still correct (in case user changed it)
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
+    console.log(`✓ OTP verified for ${email}, authenticating user...`);
+
+    // Normalize email (lowercase and trim)
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Create a client without service role key for password verification
+    // Use anon key to validate credentials (this will work correctly)
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const authClient = createClient(supabaseUrl, anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+
+    // Verify credentials and get session
+    const { data: authData, error: authError } = await authClient.auth.signInWithPassword({
+      email: normalizedEmail,
       password,
     });
 
     if (authError) {
+      console.error("❌ Authentication error:", authError);
+      
+      // Provide more specific error messages
+      let errorMessage = "Invalid credentials. Please try logging in again.";
+      if (authError.message.includes("Invalid login credentials")) {
+        errorMessage = "Invalid email or password. Please try again.";
+      } else if (authError.message.includes("Email not confirmed")) {
+        errorMessage = "Please verify your email before logging in.";
+      }
+      
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Invalid credentials. Please try logging in again.",
+          error: errorMessage,
+          details: authError.message,
         }),
         {
           status: 401,
@@ -166,10 +191,11 @@ serve(async (req: Request) => {
     }
 
     if (!authData.session || !authData.user) {
+      console.error("❌ No session or user returned from authentication");
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Failed to create session",
+          error: "Failed to create session. Please try again.",
         }),
         {
           status: 500,
@@ -177,6 +203,8 @@ serve(async (req: Request) => {
         }
       );
     }
+
+    console.log(`✓ Authentication successful for ${email}`);
 
     // Return session data - frontend will handle setting the session
     return new Response(
