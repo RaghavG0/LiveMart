@@ -60,3 +60,4 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.decrement_product_stock IS 'Decrements product stock quantity by specified amount';
+

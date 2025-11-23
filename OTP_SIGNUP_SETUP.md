@@ -339,3 +339,4 @@ Backend:
 - Timer uses `setInterval` for accurate countdown
 - All buttons properly disabled/enabled based on timer state
 
+

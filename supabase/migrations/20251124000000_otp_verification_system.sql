@@ -28,6 +28,11 @@ CREATE INDEX IF NOT EXISTS idx_signup_otps_active ON public.signup_otps(email, v
 -- Enable RLS
 ALTER TABLE public.signup_otps ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist (for idempotent migrations)
+DROP POLICY IF EXISTS "Anyone can create OTPs" ON public.signup_otps;
+DROP POLICY IF EXISTS "Anyone can verify OTPs" ON public.signup_otps;
+DROP POLICY IF EXISTS "Service role can manage OTPs" ON public.signup_otps;
+
 -- Policy: Anyone can insert OTPs (for signup)
 CREATE POLICY "Anyone can create OTPs"
   ON public.signup_otps

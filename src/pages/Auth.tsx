@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { ShoppingBag, Store, Warehouse, Navigation, MapPin } from "lucide-react";
+import { ShoppingBag, Store, Warehouse, Navigation, MapPin, AlertCircle, Mail, Loader2 } from "lucide-react";
 
 type UserRole = "customer" | "retailer" | "wholesaler";
 
@@ -28,6 +29,20 @@ const Auth = () => {
   const [locationLng, setLocationLng] = useState<number | null>(null);
   const [capturingLocation, setCapturingLocation] = useState(false);
 
+  // =====================================================
+  // OTP STATE VARIABLES - Critical for state transitions
+  // =====================================================
+  const [showOtp, setShowOtp] = useState(false); // Controls whether OTP form is shown
+  const [otpSent, setOtpSent] = useState(false); // Tracks if OTP has been sent
+  const [otpEmail, setOtpEmail] = useState(""); // Stores email for OTP verification
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]); // OTP input values
+  const [sendingOTP, setSendingOTP] = useState(false); // Loading state for sending OTP
+  const [otpError, setOtpError] = useState(""); // Error message for OTP
+  const [timeLeft, setTimeLeft] = useState(30); // Resend timer
+  const [canResend, setCanResend] = useState(false); // Whether resend is allowed
+  const timerRef = useRef<NodeJS.Timeout | null>(null); // Timer reference
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]); // OTP input refs
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
@@ -35,6 +50,83 @@ const Auth = () => {
       }
     });
   }, [navigate]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  // =====================================================
+  // OTP TIMER LOGIC
+  // =====================================================
+  const startTimer = () => {
+    setTimeLeft(30);
+    setCanResend(false);
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          setCanResend(true);
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // =====================================================
+  // SEND OTP FUNCTION - Called when user is new or requests OTP login
+  // =====================================================
+  const sendOTP = async (userEmail: string) => {
+    setSendingOTP(true);
+    setOtpError("");
+
+    try {
+      const { data, error } = await supabase.functions.invoke("send-signup-otp", {
+        body: {
+          email: userEmail,
+          phone: null,
+          otpType: "email",
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success("OTP sent to your email");
+        setOtpSent(true);
+        startTimer(); // Start the resend timer
+      } else {
+        const errorMsg = data?.error || "Failed to send OTP";
+        // Check if account already exists
+        if (errorMsg.includes("already exists") || errorMsg.includes("Account")) {
+          toast.error("Account already exists. Please use password to login.");
+          setShowOtp(false);
+          setOtpSent(false);
+          return;
+        }
+        throw new Error(errorMsg);
+      }
+    } catch (error: any) {
+      console.error("Error sending OTP:", error);
+      const errorMessage = error.message || "Failed to send OTP. Please try again.";
+      setOtpError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setSendingOTP(false);
+    }
+  };
 
   const handleCaptureCurrentLocation = () => {
     if (!("geolocation" in navigator)) {
@@ -159,9 +251,13 @@ const Auth = () => {
     }
   };
 
+  // =====================================================
+  // MODIFIED SIGN IN FUNCTION - Detects new users and triggers OTP flow
+  // =====================================================
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setOtpError("");
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -169,12 +265,155 @@ const Auth = () => {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check if error is due to user not existing (new user)
+        // Error codes: "Invalid login credentials" or user doesn't exist
+        if (error.message?.includes("Invalid login credentials") || error.message?.includes("Invalid") || error.code === "invalid_credentials") {
+          // New user detected - trigger OTP flow
+          // CRITICAL FIX: Update state to show OTP form
+          setOtpEmail(email);
+          setShowOtp(true); // THIS IS THE KEY STATE TRANSITION
+          setOtpSent(false); // Reset OTP sent status
+          setOtp(["", "", "", "", "", ""]); // Clear any previous OTP
+          
+          // Send OTP automatically for new user
+          await sendOTP(email);
+          
+          toast.info("Account not found. OTP sent to your email for verification.");
+          return;
+        }
+        throw error;
+      }
 
+      // Successful login
+      // Reset OTP state for next time
+      setShowOtp(false);
+      setOtpSent(false);
+      setOtp(["", "", "", "", "", ""]);
+      setOtpError("");
       toast.success("Signed in successfully!");
       navigate("/");
     } catch (error: any) {
-      toast.error(error.message || "Error signing in");
+      // Only show error if we haven't triggered OTP flow
+      if (!showOtp) {
+        toast.error(error.message || "Error signing in");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =====================================================
+  // OTP INPUT HANDLERS
+  // =====================================================
+  const handleOTPChange = (index: number, value: string) => {
+    // Only allow digits
+    if (value && !/^\d$/.test(value)) return;
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+    setOtpError("");
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOTPKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Handle backspace
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOTPPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").trim();
+    if (/^\d{6}$/.test(pastedData)) {
+      const digits = pastedData.split("");
+      setOtp(digits);
+      inputRefs.current[5]?.focus();
+    }
+  };
+
+  // =====================================================
+  // OTP VERIFICATION FUNCTION - Verifies OTP and logs in or creates account
+  // =====================================================
+  const handleVerifyOTP = async () => {
+    if (!otpEmail) {
+      toast.error("Email not found. Please try again.");
+      return;
+    }
+
+    const otpString = otp.join("");
+    if (otpString.length !== 6) {
+      setOtpError("Please enter the complete 6-digit OTP");
+      return;
+    }
+
+    setLoading(true);
+    setOtpError("");
+
+    try {
+      // First, verify the OTP with the backend
+      const { data, error } = await supabase.functions.invoke("verify-signup-otp", {
+        body: {
+          email: otpEmail,
+          otp: otpString,
+          password: password || `temp${Date.now()}`, // Temporary password if not set
+          fullName: otpEmail.split("@")[0], // Use email prefix as default name
+          phone: phone || null,
+          role: "customer", // Default role
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success("Verification successful!");
+
+        // Try to sign in with the account
+        // If password was provided, use it; otherwise, the account was just created
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: otpEmail,
+          password: password || `temp${Date.now()}`,
+        });
+
+        if (signInError) {
+          // Account was created but sign-in failed - user may need to set password
+          toast.info("Account verified! Please sign in with your password.");
+          setShowOtp(false); // Hide OTP form
+          setOtpSent(false);
+          return;
+        }
+
+        // Successful sign-in
+        // Reset OTP state for next time
+        setShowOtp(false);
+        setOtpSent(false);
+        setOtp(["", "", "", "", "", ""]);
+        setOtpError("");
+        toast.success("Signed in successfully!");
+        navigate("/");
+      } else {
+        throw new Error(data?.error || "Verification failed");
+      }
+    } catch (error: any) {
+      console.error("Error verifying OTP:", error);
+      const errorMessage = error.message || "Failed to verify OTP";
+      
+      if (errorMessage.includes("OTP Mismatch") || errorMessage.includes("Invalid")) {
+        setOtpError("Invalid OTP. Please try again.");
+      } else {
+        setOtpError(errorMessage);
+      }
+      
+      // Clear OTP on error
+      setOtp(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -213,73 +452,195 @@ const Auth = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
+          <Tabs 
+            defaultValue="signin" 
+            className="w-full"
+            onValueChange={(value) => {
+              // Reset OTP state when switching tabs to ensure clean state
+              if (value === "signup" || (value === "signin" && showOtp)) {
+                setShowOtp(false);
+                setOtpSent(false);
+                setOtp(["", "", "", "", "", ""]);
+                setOtpError("");
+                setOtpEmail("");
+                if (timerRef.current) {
+                  clearInterval(timerRef.current);
+                }
+              }
+            }}
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
 
             <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
-                  <Input
-                    id="signin-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Signing in..." : "Sign In"}
-                </Button>
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+              {/* =====================================================
+                  CONDITIONAL RENDERING: Show OTP form when showOtp is true
+                  This is the critical UI state transition fix
+                  ===================================================== */}
+              {!showOtp ? (
+                // LOGIN FORM - Shown by default
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-email">Email</Label>
+                    <Input
+                      id="signin-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-password">Password</Label>
+                    <Input
+                      id="signin-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? "Signing in..." : "Sign In"}
+                  </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleGoogleSignIn}
+                  >
+                    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                      <path
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        fill="#4285F4"
+                      />
+                      <path
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        fill="#34A853"
+                      />
+                      <path
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        fill="#FBBC05"
+                      />
+                      <path
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                        fill="#EA4335"
+                      />
+                    </svg>
+                    Google
+                  </Button>
+                </form>
+              ) : (
+                // OTP VERIFICATION FORM - Shown when showOtp is true
+                <div className="space-y-4">
+                  <div className="text-center space-y-2">
+                    <h3 className="text-lg font-semibold">Verify Your Email</h3>
+                    <p className="text-sm text-muted-foreground">
+                      We've sent a 6-digit OTP to <strong>{otpEmail}</strong>
+                    </p>
+                  </div>
+
+                  {otpError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{otpError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* OTP Input */}
+                  <div className="space-y-2">
+                    <Label>Enter OTP</Label>
+                    <div className="flex gap-2 justify-center" onPaste={handleOTPPaste}>
+                      {otp.map((digit, index) => (
+                        <Input
+                          key={index}
+                          ref={(el) => (inputRefs.current[index] = el)}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => handleOTPChange(index, e.target.value)}
+                          onKeyDown={(e) => handleOTPKeyDown(index, e)}
+                          className="w-12 h-12 text-center text-lg font-semibold"
+                          disabled={loading || sendingOTP}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Timer Display */}
+                  <div className="text-center">
+                    {timeLeft > 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Resend OTP in {timeLeft} seconds
+                      </p>
+                    ) : (
+                      <p className="text-sm text-green-600 font-medium">
+                        You can now resend OTP
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="space-y-2">
+                    <Button
+                      onClick={handleVerifyOTP}
+                      className="w-full"
+                      disabled={loading || otp.join("").length !== 6}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        "Verify & Continue"
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => sendOTP(otpEmail)}
+                      disabled={!canResend || sendingOTP}
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      {sendingOTP ? "Sending..." : "Resend OTP"}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => {
+                        // Reset OTP state and go back to login form
+                        setShowOtp(false);
+                        setOtpSent(false);
+                        setOtp(["", "", "", "", "", ""]);
+                        setOtpError("");
+                        setOtpEmail("");
+                        if (timerRef.current) {
+                          clearInterval(timerRef.current);
+                        }
+                      }}
+                    >
+                      Back to Login
+                    </Button>
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleGoogleSignIn}
-                >
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                    <path
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      fill="#4285F4"
-                    />
-                    <path
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      fill="#34A853"
-                    />
-                    <path
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      fill="#FBBC05"
-                    />
-                    <path
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      fill="#EA4335"
-                    />
-                  </svg>
-                  Google
-                </Button>
-              </form>
+              )}
             </TabsContent>
 
             <TabsContent value="signup">
