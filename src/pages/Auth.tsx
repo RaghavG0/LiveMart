@@ -261,17 +261,35 @@ const Auth = () => {
 
     try {
       // Step 1: Validate credentials and send OTP (DO NOT authenticate yet)
-      const { data, error } = await supabase.functions.invoke("send-login-otp", {
-        method: "POST",
-        body: {
-          email: email.trim(),
-          password: password, // Password is needed for credential validation
-        },
-      });
+      console.log("Calling send-login-otp for email:", email);
+      
+      // Use fetch directly to avoid automatic auth header injection
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-login-otp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY || "",
+            // Don't include Authorization header - this is for login
+          },
+          body: JSON.stringify({
+            email: email.trim(),
+            password: password,
+          }),
+        }
+      );
 
-      if (error) {
-        throw error;
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error("send-login-otp error:", result);
+        throw new Error(result.error || "Failed to send OTP");
       }
+      
+      const data = result;
 
       if (!data?.success) {
         // Invalid credentials or other error

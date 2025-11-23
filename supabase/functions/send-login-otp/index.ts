@@ -134,12 +134,52 @@ serve(async (req: Request) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log("send-login-otp called:", req.method, req.url);
+  console.log("Request headers:", Object.fromEntries(req.headers.entries()));
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Missing environment variables");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Server configuration error",
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // This function does NOT require authentication - it's for login!
+    // We accept requests from unauthenticated users
 
-    const { email, password } = await req.json();
+    // Parse request body
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid request format",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    const { email, password } = requestBody;
+    console.log("Received send-login-otp request for email:", email);
 
     // Validate required fields
     if (!email || !password) {
@@ -189,10 +229,12 @@ serve(async (req: Request) => {
 
     // Store OTP in database with type "login"
     // Note: We're reusing signup_otps table but with otp_type="login"
+    // Using service role bypasses RLS policies
+    console.log("Inserting OTP into database...");
     const { data: otpData, error: insertError } = await supabase
       .from("signup_otps")
       .insert({
-        email,
+        email: email.trim(),
         phone: null,
         otp_code: otp,
         otp_type: "login", // Mark as login OTP
@@ -205,8 +247,28 @@ serve(async (req: Request) => {
 
     if (insertError) {
       console.error("Error storing login OTP:", insertError);
-      throw insertError;
+      console.error("Insert error details:", {
+        code: insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+      });
+      
+      // Return specific error message
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Failed to store OTP",
+          details: insertError.message,
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
+    
+    console.log("OTP stored successfully:", otpData.id);
 
     // Send OTP via email
     const sendSuccess = await sendEmailOTP(email, otp);

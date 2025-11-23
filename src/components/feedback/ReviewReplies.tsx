@@ -133,10 +133,30 @@ export const ReviewReplies = ({ reviewId, productSellerId, currentUserId }: Revi
   };
 
   const handleSubmitReply = async (parentReplyId: string | null = null) => {
-    if (!replyText.trim() || replyText.trim().length < 10) {
+    const trimmedText = replyText.trim();
+    
+    console.log("handleSubmitReply called:", { 
+      replyText: trimmedText, 
+      length: trimmedText.length,
+      reviewId,
+      parentReplyId,
+      currentUserId,
+      productSellerId 
+    });
+    
+    if (!trimmedText) {
       toast({
         title: "Invalid reply",
-        description: "Reply must be at least 10 characters",
+        description: "Please enter a reply",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (trimmedText.length < 10) {
+      toast({
+        title: "Reply too short",
+        description: `Reply must be at least 10 characters (currently ${trimmedText.length})`,
         variant: "destructive",
       });
       return;
@@ -148,9 +168,16 @@ export const ReviewReplies = ({ reviewId, productSellerId, currentUserId }: Revi
       // Determine reply type
       const isVendor = productSellerId === currentUserId;
       const replyType = isVendor ? "vendor" : "user";
+      
+      console.log("Reply type determined:", replyType, { isVendor, productSellerId, currentUserId });
 
       // Get session to include auth header
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+        throw sessionError;
+      }
+      
       if (!session) {
         toast({
           title: "Error",
@@ -160,6 +187,7 @@ export const ReviewReplies = ({ reviewId, productSellerId, currentUserId }: Revi
         return;
       }
 
+      console.log("Calling submit-reply edge function...");
       const { data, error } = await supabase.functions.invoke("submit-reply", {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -167,12 +195,17 @@ export const ReviewReplies = ({ reviewId, productSellerId, currentUserId }: Revi
         body: {
           reviewId,
           parentReplyId,
-          replyText: replyText.trim(),
+          replyText: trimmedText,
           replyType,
         },
       });
 
-      if (error) throw error;
+      console.log("submit-reply response:", { data, error });
+
+      if (error) {
+        console.error("Edge function error:", error);
+        throw error;
+      }
 
       if (data?.success) {
         toast({
@@ -184,15 +217,21 @@ export const ReviewReplies = ({ reviewId, productSellerId, currentUserId }: Revi
         // Refresh replies after a short delay to ensure database is updated
         setTimeout(() => {
           fetchReplies();
-        }, 300);
+        }, 500);
       } else {
+        console.error("Reply submission failed:", data);
         throw new Error(data?.error || data?.message || "Failed to submit reply");
       }
     } catch (error: any) {
       console.error("Error submitting reply:", error);
+      console.error("Error details:", {
+        message: error.message,
+        status: error.status,
+        context: error.context,
+      });
       toast({
         title: "Error",
-        description: error.message || "Failed to submit reply",
+        description: error.message || "Failed to submit reply. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -360,7 +399,17 @@ export const ReviewReplies = ({ reviewId, productSellerId, currentUserId }: Revi
                   )}
                   <Button
                     size="sm"
-                    onClick={() => handleSubmitReply(null)}
+                    onClick={() => {
+                      if (replyText.trim().length < 10) {
+                        toast({
+                          title: "Reply too short",
+                          description: "Reply must be at least 10 characters long",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      handleSubmitReply(null);
+                    }}
                     disabled={submitting || !!replyingTo || replyText.trim().length < 10}
                   >
                     {submitting ? (
