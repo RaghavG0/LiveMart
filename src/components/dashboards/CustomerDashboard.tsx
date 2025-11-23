@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar, MessageSquare, ShoppingBag, Menu, Store, ArrowRight } from "lucide-react";
+import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar, MessageSquare, ShoppingBag, Menu, Store, ArrowRight, Filter } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { getPickupCartItemCount } from "@/lib/pickupCart";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import { LocationPermission } from "@/components/LocationPermission";
 import MapView from "@/components/MapView";
 import NotificationBell from "@/components/NotificationBell";
 import { reverseGeocode, type AddressComponents } from "@/lib/reverseGeocode";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface CustomerDashboardProps {
   user: User;
@@ -44,6 +45,7 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
   const [searchParams] = useSearchParams();
   const isPickupMode = searchParams.get('pickup') === 'true';
   const [pickupCartCount, setPickupCartCount] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchMaxPrice();
@@ -247,6 +249,15 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
           </div>
           <div className="flex gap-2">
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(true)}
+              className="bg-white hover:bg-gray-50"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filters
+            </Button>
+            <Button
               variant={viewMode === 'grid' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('grid')}
@@ -356,30 +367,18 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
         )}
 
         {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <aside className="lg:col-span-1">
-              <FilterPanel 
-                filters={filters} 
-                onFiltersChange={setFilters}
-                maxPrice={maxPrice}
-                hasLocation={!!location}
-              />
-            </aside>
-            <div className="lg:col-span-3">
-              <ProductGrid 
-                searchQuery={searchQuery}
-                priceRange={filters.priceRange}
-                minStock={filters.minStock}
-                inStockOnly={filters.inStockOnly}
-                sortBy={filters.sortBy}
-                userLocation={location}
-                maxDistance={filters.maxDistance}
-                sellerId={selectedSellerId}
-                categoryId={filters.categoryId}
-                subcategoryId={filters.subcategoryId}
-              />
-            </div>
-          </div>
+          <ProductGrid 
+            searchQuery={searchQuery}
+            priceRange={filters.priceRange}
+            minStock={filters.minStock}
+            inStockOnly={filters.inStockOnly}
+            sortBy={filters.sortBy}
+            userLocation={location}
+            maxDistance={filters.maxDistance}
+            sellerId={selectedSellerId}
+            categoryId={filters.categoryId}
+            subcategoryId={filters.subcategoryId}
+          />
         ) : (
           <MapView 
             userLocation={location}
@@ -390,6 +389,26 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
             }}
           />
         )}
+
+        {/* Filters Sheet/Drawer */}
+        <Sheet open={showFilters} onOpenChange={setShowFilters}>
+          <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Filters</SheetTitle>
+            </SheetHeader>
+            <div className="mt-6">
+              <FilterPanel 
+                filters={filters} 
+                onFiltersChange={(newFilters) => {
+                  setFilters(newFilters);
+                }}
+                maxPrice={maxPrice}
+                hasLocation={!!location}
+                variant="modal"
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       </main>
     </div>
   );

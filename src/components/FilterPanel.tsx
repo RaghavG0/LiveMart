@@ -31,6 +31,7 @@ interface FilterPanelProps {
   onFiltersChange: (filters: FilterState) => void;
   maxPrice: number;
   hasLocation?: boolean;
+  variant?: "sidebar" | "modal";
 }
 
 // Default filters will be created dynamically with maxPrice
@@ -45,7 +46,7 @@ const getDefaultFilters = (maxPrice: number): FilterState => ({
   subcategoryId: null,
 });
 
-const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }: FilterPanelProps) => {
+const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false, variant = "sidebar" }: FilterPanelProps) => {
   const [tempFilters, setTempFilters] = useState<FilterState>(filters);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Category[]>([]);
@@ -143,7 +144,7 @@ const FilterPanel = ({ filters, onFiltersChange, maxPrice, hasLocation = false }
   };
 
   return (
-    <Card className="sticky top-4 border border-gray-200 bg-white shadow-md">
+    <Card className={variant === "sidebar" ? "sticky top-4 border border-gray-200 bg-white shadow-md" : "border border-gray-200 bg-white shadow-md"}>
       <CardHeader>
         <CardTitle className="text-lg text-gray-900">Filters</CardTitle>
       </CardHeader>
