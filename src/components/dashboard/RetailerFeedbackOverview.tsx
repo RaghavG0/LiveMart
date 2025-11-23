@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import FeedbackRating from "@/components/feedback/FeedbackRating";
 import ProductReviewsModal from "./ProductReviewsModal";
 import FeedbackAnalytics from "./FeedbackAnalytics";
-import { Eye, MessageSquare, Star, TrendingUp, Package } from "lucide-react";
+import { Eye, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
@@ -67,6 +67,7 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
       setLoading(true);
 
       // Fetch retailer's products with reviews and replies
+      // Note: Fetch reviews without profiles join to avoid FK requirement
       const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select(`
@@ -79,7 +80,7 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
             comment,
             created_at,
             edited_at,
-            profiles!inner(full_name),
+            user_id,
             review_replies (
               id,
               reply_text,
@@ -92,6 +93,32 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
         .eq("is_available", true);
 
       if (productsError) throw productsError;
+
+      // Fetch all user IDs from reviews
+      const userIds = new Set<string>();
+      productsData?.forEach((product: any) => {
+        product.reviews?.forEach((review: any) => {
+          if (review.user_id) userIds.add(review.user_id);
+        });
+      });
+
+      // Fetch profiles for all users (only if there are reviews)
+      const profilesMap = new Map<string, string>();
+      if (userIds.size > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", Array.from(userIds));
+
+        if (profilesError) {
+          console.error("Error fetching profiles:", profilesError);
+        } else {
+          // Create a map for quick lookup
+          profilesData?.forEach((profile: any) => {
+            profilesMap.set(profile.id, profile.full_name);
+          });
+        }
+      }
 
       // Process products data
       const processedProducts: ProductFeedback[] = (productsData || [])
@@ -114,7 +141,7 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
                 id: review.id,
                 rating: review.rating,
                 comment: review.comment,
-                customerName: review.profiles?.full_name || "Anonymous",
+                customerName: profilesMap.get(review.user_id) || "Anonymous",
                 createdAt: review.created_at,
                 editedAt: review.edited_at,
                 isEdited: !!review.edited_at,
@@ -197,48 +224,6 @@ const RetailerFeedbackOverview = ({ retailerId }: RetailerFeedbackOverviewProps)
     <div className="space-y-6">
       {/* Analytics Section */}
       <FeedbackAnalytics retailerId={retailerId} />
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Average Rating</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-2xl font-bold">{summary.averageRating.toFixed(1)}</p>
-                  <FeedbackRating rating={summary.averageRating} size="sm" />
-                </div>
-              </div>
-              <Star className="h-8 w-8 text-yellow-400 fill-yellow-400" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Reviews</p>
-                <p className="text-2xl font-bold mt-1">{summary.totalReviews}</p>
-              </div>
-              <MessageSquare className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Products Reviewed</p>
-                <p className="text-2xl font-bold mt-1">{products.length}</p>
-              </div>
-              <Package className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Products Feedback Table */}
       <Card>
