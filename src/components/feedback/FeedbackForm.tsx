@@ -128,6 +128,21 @@ const FeedbackForm = ({
               Thank you for your feedback! Your review has been {existingReview ? "updated" : "submitted"} successfully.
             </AlertDescription>
           </Alert>
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSubmitSuccess(false);
+                setRating(0);
+                setComment("");
+                setUploadedImageIds([]);
+                onSuccess?.();
+              }}
+            >
+              Write Another Review
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );

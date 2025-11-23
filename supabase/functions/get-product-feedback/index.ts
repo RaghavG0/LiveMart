@@ -14,23 +14,33 @@ serve(async (req) => {
 
   try {
     // Parse parameters from either POST body or URL query string
-    let productId: string | null;
-    let page: number;
-    let limit: number;
+    let productId: string | null = null;
+    let page: number = 1;
+    let limit: number = 10;
 
     if (req.method === 'POST') {
-      const body = await req.json();
-      productId = body.productId || null;
-      page = parseInt(body.page || '1');
-      limit = parseInt(body.limit || '10');
+      try {
+        const body = await req.json();
+        productId = body.productId || body.product_id || null;
+        page = parseInt(String(body.page || '1'), 10);
+        limit = parseInt(String(body.limit || '10'), 10);
+      } catch (parseError) {
+        console.error('Error parsing POST body:', parseError);
+        // Try URL params as fallback
+        const url = new URL(req.url);
+        productId = url.searchParams.get('productId') || url.searchParams.get('product_id');
+        page = parseInt(url.searchParams.get('page') || '1', 10);
+        limit = parseInt(url.searchParams.get('limit') || '10', 10);
+      }
     } else {
       const url = new URL(req.url);
-      productId = url.searchParams.get('productId');
-      page = parseInt(url.searchParams.get('page') || '1');
-      limit = parseInt(url.searchParams.get('limit') || '10');
+      productId = url.searchParams.get('productId') || url.searchParams.get('product_id');
+      page = parseInt(url.searchParams.get('page') || '1', 10);
+      limit = parseInt(url.searchParams.get('limit') || '10', 10);
     }
 
     if (!productId) {
+      console.error('Missing productId in request');
       return new Response(
         JSON.stringify({ error: 'productId is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -90,69 +100,57 @@ serve(async (req) => {
     // Calculate pagination
     const offset = (page - 1) * limit;
 
-    // Get paginated reviews with user info and verified buyer flag
-    // First try with join, if that fails, fetch separately
+    // Get paginated reviews - use simpler query without complex joins
+    const { data: reviewsData, error: reviewsError, count: reviewsCount } = await supabaseClient
+      .from('reviews')
+      .select('id, rating, comment, created_at, edited_at, user_id, verified_buyer, product_id', { count: 'exact' })
+      .eq('product_id', productId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (reviewsError) {
+      console.error('Error fetching reviews:', reviewsError);
+      throw reviewsError;
+    }
+
     let reviews: any[] = [];
-    let count = 0;
+    const count = reviewsCount || 0;
     
-    try {
-      const { data: reviewsData, error: reviewsError, count: reviewsCount } = await supabaseClient
-        .from('reviews')
-        .select(`
-          id,
-          rating,
-          comment,
-          created_at,
-          edited_at,
-          user_id,
-          verified_buyer,
-          products!inner(seller_id),
-          profiles(full_name)
-        `, { count: 'exact' })
-        .eq('product_id', productId)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (reviewsError) throw reviewsError;
-      reviews = reviewsData || [];
-      count = reviewsCount || 0;
-    } catch (joinError) {
-      // Fallback: fetch reviews without join and enrich separately
-      console.error('Error with join query, trying fallback:', joinError);
-      const { data: reviewsData, error: reviewsError, count: reviewsCount } = await supabaseClient
-        .from('reviews')
-        .select('id, rating, comment, created_at, edited_at, user_id, verified_buyer, product_id', { count: 'exact' })
-        .eq('product_id', productId)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (reviewsError) throw reviewsError;
+    // Enrich with profile data
+    if (reviewsData && reviewsData.length > 0) {
+      const userIds = [...new Set(reviewsData.map((r: any) => r.user_id).filter(Boolean))];
       
-      // Enrich with profile data
-      if (reviewsData && reviewsData.length > 0) {
-        const userIds = [...new Set(reviewsData.map(r => r.user_id))];
+      // Fetch profiles
+      let profilesMap = new Map();
+      if (userIds.length > 0) {
         const { data: profilesData } = await supabaseClient
           .from('profiles')
           .select('id, full_name')
           .in('id', userIds);
         
-        const profilesMap = new Map((profilesData || []).map(p => [p.id, p]));
-        
-        // Get product seller_id
+        if (profilesData) {
+          profilesMap = new Map(profilesData.map((p: any) => [p.id, p]));
+        }
+      }
+      
+      // Get product seller_id
+      let sellerId: string | null = null;
+      try {
         const { data: productData } = await supabaseClient
           .from('products')
           .select('seller_id')
           .eq('id', productId)
-          .single();
-        
-        reviews = reviewsData.map(r => ({
-          ...r,
-          profiles: profilesMap.get(r.user_id) || { full_name: 'Anonymous' },
-          products: { seller_id: productData?.seller_id || null }
-        }));
+          .maybeSingle();
+        sellerId = productData?.seller_id || null;
+      } catch (productError) {
+        console.error('Error fetching product seller_id:', productError);
       }
       
-      count = reviewsCount || 0;
+      reviews = reviewsData.map((r: any) => ({
+        ...r,
+        profiles: profilesMap.get(r.user_id) || { full_name: 'Anonymous' },
+        products: { seller_id: sellerId }
+      }));
     }
 
     // Format reviews
@@ -195,8 +193,12 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error('Error in get-product-feedback function:', error);
+    console.error('Error stack:', error.stack);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message || 'Internal server error',
+        details: error.toString()
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

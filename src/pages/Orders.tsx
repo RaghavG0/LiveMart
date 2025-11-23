@@ -9,6 +9,27 @@ import { toast } from "sonner";
 import { ArrowLeft, Package, Star, Wifi, WifiOff } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import OrderStatusBadge from "@/components/OrderStatusBadge";
+
+// Helper function to get status display text
+const getStatusDisplay = (status: string, notes: string | null) => {
+  if (notes?.includes("Store Pickup")) {
+    switch (status) {
+      case "pending":
+        return "Order Placed";
+      case "confirmed":
+      case "processing":
+        return "Ready for Pickup";
+      case "ready_for_pickup":
+        return "Ready for Pickup";
+      case "picked_up":
+      case "delivered":
+        return "Picked Up";
+      default:
+        return status;
+    }
+  }
+  return status;
+};
 import {
   Accordion,
   AccordionContent,
@@ -169,6 +190,12 @@ const Orders = () => {
                       </p>
                     </div>
                     <OrderStatusBadge status={order.status} />
+                    {order.notes?.includes("Store Pickup") && (
+                      <Badge variant="outline" className="ml-2">
+                        <Package className="h-3 w-3 mr-1" />
+                        Store Pickup
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>

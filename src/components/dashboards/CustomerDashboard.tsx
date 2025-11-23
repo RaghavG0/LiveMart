@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar, MessageSquare, ShoppingBag, Menu } from "lucide-react";
+import { ShoppingCart, Heart, User as UserIcon, LogOut, Search, Grid, Map, Package, Calendar, MessageSquare, ShoppingBag, Menu, Store } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate, Link } from "react-router-dom";
 import ProductGrid from "@/components/ProductGrid";
@@ -125,7 +125,7 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
             </div>
 
             {/* Right Side - Action Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 md:gap-3">
               {/* Delivery Info - Hidden on mobile */}
               <div className="hidden lg:flex items-center gap-2 text-white text-sm">
                 <span className="flex items-center gap-1">
@@ -136,29 +136,73 @@ const CustomerDashboard = ({ user }: CustomerDashboardProps) => {
                 </span>
               </div>
               
-              <Button variant="ghost" size="icon" onClick={() => navigate("/wishlist")} className="relative text-white hover:text-primary hover:bg-white/10">
-                <Heart className="h-5 w-5" />
-                {wishlistCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                    {wishlistCount}
-                  </span>
-                )}
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => navigate("/cart")} className="relative text-white hover:text-primary hover:bg-white/10">
-                <ShoppingCart className="h-5 w-5" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                    {cartCount}
-                  </span>
-                )}
-              </Button>
+              {/* My Orders - with label */}
+              <div className="flex flex-col items-center gap-0.5">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => navigate("/orders")} 
+                  className="text-white hover:text-primary hover:bg-white/10"
+                  title="My Orders"
+                >
+                  <Package className="h-5 w-5" />
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Orders</span>
+              </div>
+
+              {/* Offline Pickup - with label */}
+              <div className="flex flex-col items-center gap-0.5">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => navigate("/offline-pickup")} 
+                  className="text-white hover:text-primary hover:bg-white/10"
+                  title="Store Pickup"
+                >
+                  <Store className="h-5 w-5" />
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Pickup</span>
+              </div>
+              
+              <div className="flex flex-col items-center gap-0.5">
+                <Button variant="ghost" size="icon" onClick={() => navigate("/wishlist")} className="relative text-white hover:text-primary hover:bg-white/10">
+                  <Heart className="h-5 w-5" />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                      {wishlistCount}
+                    </span>
+                  )}
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Wishlist</span>
+              </div>
+
+              <div className="flex flex-col items-center gap-0.5">
+                <Button variant="ghost" size="icon" onClick={() => navigate("/cart")} className="relative text-white hover:text-primary hover:bg-white/10">
+                  <ShoppingCart className="h-5 w-5" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                      {cartCount}
+                    </span>
+                  )}
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Cart</span>
+              </div>
+
               <NotificationBell />
-              <Button variant="ghost" size="icon" onClick={() => navigate("/account")} className="text-white hover:text-primary hover:bg-white/10">
-                <UserIcon className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleSignOut} className="text-white hover:text-primary hover:bg-white/10">
-                <LogOut className="h-5 w-5" />
-              </Button>
+              
+              <div className="flex flex-col items-center gap-0.5">
+                <Button variant="ghost" size="icon" onClick={() => navigate("/account")} className="text-white hover:text-primary hover:bg-white/10">
+                  <UserIcon className="h-5 w-5" />
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Account</span>
+              </div>
+
+              <div className="flex flex-col items-center gap-0.5">
+                <Button variant="ghost" size="icon" onClick={handleSignOut} className="text-white hover:text-primary hover:bg-white/10">
+                  <LogOut className="h-5 w-5" />
+                </Button>
+                <span className="text-[10px] text-white/90 hidden sm:block">Logout</span>
+              </div>
             </div>
           </div>
           

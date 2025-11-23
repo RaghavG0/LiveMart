@@ -30,9 +30,10 @@ interface FeedbackListProps {
   productId: string;
   className?: string;
   refreshTrigger?: number; // Add refresh trigger prop
+  onRefresh?: () => void; // Callback when refresh completes
 }
 
-const FeedbackList = ({ productId, className, refreshTrigger }: FeedbackListProps) => {
+const FeedbackList = ({ productId, className, refreshTrigger, onRefresh }: FeedbackListProps) => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [summary, setSummary] = useState<FeedbackSummary>({
     averageRating: 0,
@@ -62,37 +63,74 @@ const FeedbackList = ({ productId, className, refreshTrigger }: FeedbackListProp
       });
   }, [productId]);
 
-  useEffect(() => {
-    fetchFeedback();
-  }, [productId, currentPage, refreshTrigger]); // Add refreshTrigger to dependencies
-
   const fetchFeedback = async () => {
+    if (!productId) {
+      console.warn("FeedbackList: productId is required");
+      return;
+    }
+    
     try {
       setLoading(true);
+      const requestBody = {
+        productId: String(productId),
+        page: Number(currentPage),
+        limit: Number(itemsPerPage),
+      };
+      console.log("Fetching feedback with:", requestBody, "refreshTrigger:", refreshTrigger);
+      
       const { data, error } = await supabase.functions.invoke(
         "get-product-feedback",
         {
-          body: {
-            productId,
-            page: currentPage,
-            limit: itemsPerPage,
-          },
+          body: requestBody,
         }
       );
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching feedback:", error);
+        // Don't throw, just log and show empty state
+        setReviews([]);
+        setSummary({ averageRating: 0, totalReviews: 0 });
+        setTotalPages(1);
+        return;
+      }
+
+      console.log("Feedback response received:", data);
 
       if (data?.success) {
-        setReviews(data.data.reviews);
-        setSummary(data.data.summary);
-        setTotalPages(data.data.pagination.totalPages);
+        setReviews(data.data.reviews || []);
+        setSummary(data.data.summary || { averageRating: 0, totalReviews: 0 });
+        setTotalPages(data.data.pagination?.totalPages || 1);
+        console.log("Feedback updated successfully, reviews count:", data.data.reviews?.length || 0);
+        // Notify parent that refresh completed
+        onRefresh?.();
+      } else {
+        // Handle case where success is false
+        console.error("Failed to fetch feedback:", data?.error);
+        setReviews([]);
+        setSummary({ averageRating: 0, totalReviews: 0 });
+        setTotalPages(1);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching feedback:", error);
+      setReviews([]);
+      setSummary({ averageRating: 0, totalReviews: 0 });
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchFeedback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, currentPage, refreshTrigger]); // refreshTrigger will force re-fetch
+
+  // Separate effect to reset to page 1 when refreshTrigger changes (for new reviews)
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0 && currentPage !== 1) {
+      setCurrentPage(1); // Reset to first page when refreshing
+    }
+  }, [refreshTrigger, currentPage]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-IN", {

@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import SignUp from "./pages/SignUp";
+import VerifyOTP from "./pages/VerifyOTP";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Wishlist from "./pages/Wishlist";
@@ -16,6 +18,7 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
 import OrderTracking from "./pages/OrderTracking";
 import OfflineBooking from "./pages/OfflineBooking";
+import OfflinePickup from "./pages/OfflinePickup";
 import SellerOrderManagement from "./pages/SellerOrderManagement";
 import ConfirmDelivery from "./pages/ConfirmDelivery";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
@@ -50,6 +53,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/verify-otp" element={<VerifyOTP />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/wishlist" element={<Wishlist />} />
@@ -60,6 +65,7 @@ const App = () => (
           <Route path="/payment-failure" element={<PaymentFailure />} />
           <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
           <Route path="/offline-booking" element={<OfflineBooking />} />
+          <Route path="/offline-pickup" element={<OfflinePickup />} />
           <Route path="/seller-orders" element={<SellerOrderManagement />} />
           <Route path="/orders/confirm-delivery" element={<ConfirmDelivery />} />
           <Route path="/admin" element={<AdminDashboard />} />
